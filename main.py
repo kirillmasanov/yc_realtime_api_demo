@@ -115,8 +115,6 @@ SESSION_CONFIG = {
         # Формат входящего и исходящего аудио
         "input_audio_format": "pcm16",
         "output_audio_format": "pcm16",
-        # Транскрипция речи пользователя
-        "input_audio_transcription": {"model": "whisper-1"},
         # Конфигурация серверного VAD
         "turn_detection": {
             "type": "server_vad",  # включаем серверный VAD
