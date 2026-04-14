@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yandex Realtime API Demo</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Yandex Realtime API</h1>
+      <span id="status">Подключение...</span>
+    </header>
+    <main id="chat"></main>
+    <footer>
+      <button id="mic-btn" disabled aria-label="Push to talk">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="1" width="6" height="11" rx="3"/>
+          <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <span id="mic-status">Подключение...</span>
+    </footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
