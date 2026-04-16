@@ -28,6 +28,17 @@ const micBtn = document.getElementById("mic-btn");
 const micStatus = document.getElementById("mic-status");
 const statusEl = document.getElementById("status");
 
+// Settings DOM
+const settingsPanel = document.getElementById("settings-panel");
+const settingsBtn = document.getElementById("settings-btn");
+const settingVoice = document.getElementById("setting-voice");
+const settingThreshold = document.getElementById("setting-threshold");
+const settingThresholdVal = document.getElementById("threshold-val");
+const settingSilence = document.getElementById("setting-silence");
+const settingSilenceVal = document.getElementById("silence-val");
+const settingInstructions = document.getElementById("setting-instructions");
+const settingsApply = document.getElementById("settings-apply");
+
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -58,6 +69,61 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+const DEFAULT_INSTRUCTIONS =
+  "Ты — голосовой ассистент-демонстратор возможностей Yandex Realtime API. " +
+  "Отвечай кратко, дружелюбно и по существу. " +
+  "У тебя есть инструменты: калькулятор (calculator) и поиск в интернете (web_search). " +
+  "Используй web_search для новостей, актуальных событий и любой информации, которой у тебя может не быть. " +
+  "Используй инструменты когда пользователь просит. " +
+  "ВАЖНО: перед вызовом функции ничего не говори — просто вызови функцию молча. " +
+  "Ответ формируй только после получения результата функции. " +
+  "Отвечай на том языке, на котором к тебе обращаются. " +
+  "Никогда не используй markdown-разметку: никаких **, *, #, -, > и подобных символов — ответы озвучиваются вслух.";
+
+settingInstructions.value = DEFAULT_INSTRUCTIONS;
+
+function toggleSettings() {
+  settingsPanel.hidden = !settingsPanel.hidden;
+  settingsBtn.classList.toggle("active", !settingsPanel.hidden);
+}
+
+function getSessionSettings() {
+  return {
+    voice: settingVoice.value,
+    turn_detection: {
+      type: "server_vad",
+      threshold: parseFloat(settingThreshold.value),
+      silence_duration_ms: parseInt(settingSilence.value),
+    },
+    instructions: settingInstructions.value.trim(),
+  };
+}
+
+function applySettings() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: "session.update", session: getSessionSettings() }));
+}
+
+settingThreshold.addEventListener("input", () => {
+  settingThresholdVal.textContent = settingThreshold.value;
+});
+
+settingSilence.addEventListener("input", () => {
+  settingSilenceVal.textContent = settingSilence.value;
+});
+
+settingsBtn.addEventListener("click", toggleSettings);
+
+settingsApply.addEventListener("click", () => {
+  applySettings();
+  settingsApply.textContent = "Применено ✓";
+  setTimeout(() => { settingsApply.textContent = "Применить"; }, 1500);
+});
 
 // ---------------------------------------------------------------------------
 // Status
@@ -109,6 +175,11 @@ function handleMessage(event) {
 
   switch (type) {
     case "session.created":
+      updateStatus("Сессия активна", true);
+      // Применяем пользовательские настройки поверх серверных defaults
+      applySettings();
+      break;
+
     case "session.updated":
       updateStatus("Сессия активна", true);
       break;
@@ -139,9 +210,10 @@ function handleMessage(event) {
       addToolCallMessage(msg.name, msg.arguments, msg.result);
       break;
 
-    // User started speaking — interrupt playback
+    // User started speaking — new turn begins
     case "input_audio_buffer.speech_started":
-      stopPlayback();
+      finalizeAssistantMessage(); // сбрасываем пузырёк: response.done мог не прийти при прерывании
+      if (isRecording) stopPlayback();
       break;
 
     // Response complete
@@ -178,10 +250,10 @@ async function initAudio() {
   audioInitialized = true;
 }
 
-function startRecording() {
+async function startRecording() {
   if (isRecording) return;
   if (audioContext && audioContext.state === "suspended") {
-    audioContext.resume();
+    await audioContext.resume();
   }
 
   sourceNode = audioContext.createMediaStreamSource(mediaStream);
@@ -234,9 +306,11 @@ function stopRecording() {
 // ---------------------------------------------------------------------------
 // Audio playback
 // ---------------------------------------------------------------------------
-function enqueueAudio(base64Delta) {
+async function enqueueAudio(base64Delta) {
   if (!audioContext) return;
-  if (audioContext.state === "suspended") audioContext.resume();
+  if (audioContext.state === "suspended") {
+    await audioContext.resume();
+  }
 
   const arrayBuffer = base64ToArrayBuffer(base64Delta);
   const int16Array = new Int16Array(arrayBuffer);
