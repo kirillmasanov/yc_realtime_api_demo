@@ -29,6 +29,51 @@ const micStatus = document.getElementById("mic-status");
 const statusEl = document.getElementById("status");
 const textInput = document.getElementById("text-input");
 const sendBtn = document.getElementById("send-btn");
+const attachBtn = document.getElementById("attach-btn");
+const fileInput = document.getElementById("file-input");
+const fileStatusEl = document.getElementById("file-status");
+
+// RAG state
+let currentVectorStoreId = null;
+
+// Определения инструментов для session.update из браузера (зеркало main.py TOOLS)
+const TOOLS_BASE = [
+  {
+    type: "function",
+    name: "calculator",
+    description: "Вычисляет математическое выражение. Используй для любых арифметических расчётов.",
+    parameters: {
+      type: "object",
+      properties: {
+        expression: {
+          type: "string",
+          description: "Математическое выражение, например '2 + 2 * 3' или 'sqrt(144)'",
+        },
+      },
+      required: ["expression"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "web_search",
+    description: "Поиск актуальной информации в интернете.",
+    parameters: "{}",
+  },
+];
+
+function buildSessionTools() {
+  const tools = [...TOOLS_BASE];
+  if (currentVectorStoreId) {
+    tools.push({
+      type: "function",
+      name: "file_search",
+      description: currentVectorStoreId,
+      parameters: "{}",
+    });
+  }
+  return tools;
+}
 
 // Settings DOM
 const settingsPanel = document.getElementById("settings-panel");
@@ -142,13 +187,25 @@ function connect() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
-  ws.onopen = () => {
+  ws.onopen = async () => {
     updateStatus("Подключено", true);
     reconnectAttempts = 0;
     micBtn.disabled = false;
     textInput.disabled = false;
     sendBtn.disabled = false;
+    attachBtn.disabled = false;
     micStatus.textContent = "Нажмите для начала записи";
+
+    // Восстанавливаем RAG-состояние с сервера (если файл уже загружен)
+    try {
+      const resp = await fetch("/api/rag/status");
+      const data = await resp.json();
+      if (data.active) {
+        currentVectorStoreId = data.vector_store_id;
+        setFileStatus(`✓ ${data.filename}`, "ready");
+        attachBtn.classList.add("has-file");
+      }
+    } catch {}
   };
 
   ws.onclose = () => {
@@ -156,6 +213,7 @@ function connect() {
     micBtn.disabled = true;
     textInput.disabled = true;
     sendBtn.disabled = true;
+    attachBtn.disabled = true;
     reconnect();
   };
 
@@ -468,6 +526,60 @@ textInput.addEventListener("keydown", (e) => {
     sendTextMessage();
   }
 });
+
+// ---------------------------------------------------------------------------
+// RAG — загрузка файла
+// ---------------------------------------------------------------------------
+function setFileStatus(text, state) {
+  fileStatusEl.textContent = text;
+  fileStatusEl.className = state;
+  fileStatusEl.hidden = !text;
+}
+
+async function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileInput.value = "";
+
+  setFileStatus(`Загрузка ${file.name}…`, "loading");
+  attachBtn.disabled = true;
+  attachBtn.classList.remove("has-file");
+
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const resp = await fetch("/api/upload", { method: "POST", body: formData });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || "Ошибка загрузки");
+    }
+
+    const data = await resp.json();
+    currentVectorStoreId = data.vector_store_id;
+
+    // Обновляем инструменты в текущей сессии
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: "session.update",
+        session: { tools: buildSessionTools(), tool_choice: "auto" },
+      }));
+    }
+
+    setFileStatus(`✓ ${data.filename}`, "ready");
+    attachBtn.classList.add("has-file");
+    addSystemMessage(`RAG активирован: «${data.filename}». Задавайте вопросы по документу.`);
+  } catch (err) {
+    setFileStatus(`Ошибка: ${err.message}`, "error");
+    currentVectorStoreId = null;
+  } finally {
+    attachBtn.disabled = false;
+  }
+}
+
+attachBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", handleFileUpload);
 
 // ---------------------------------------------------------------------------
 // Init
