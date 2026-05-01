@@ -27,6 +27,8 @@ const chat = document.getElementById("chat");
 const micBtn = document.getElementById("mic-btn");
 const micStatus = document.getElementById("mic-status");
 const statusEl = document.getElementById("status");
+const textInput = document.getElementById("text-input");
+const sendBtn = document.getElementById("send-btn");
 
 // Settings DOM
 const settingsPanel = document.getElementById("settings-panel");
@@ -144,12 +146,16 @@ function connect() {
     updateStatus("Подключено", true);
     reconnectAttempts = 0;
     micBtn.disabled = false;
+    textInput.disabled = false;
+    sendBtn.disabled = false;
     micStatus.textContent = "Нажмите для начала записи";
   };
 
   ws.onclose = () => {
     updateStatus("Отключено", false);
     micBtn.disabled = true;
+    textInput.disabled = true;
+    sendBtn.disabled = true;
     reconnect();
   };
 
@@ -232,12 +238,15 @@ function handleMessage(event) {
 // ---------------------------------------------------------------------------
 // Audio capture (push-to-talk)
 // ---------------------------------------------------------------------------
-async function initAudio() {
-  if (audioInitialized) return;
-
+async function initAudioContext() {
+  if (audioContext) return;
   audioContext = new AudioContext({ sampleRate: 44100 });
   await audioContext.audioWorklet.addModule("/static/pcm-worklet.js");
+}
 
+async function initAudio() {
+  if (audioInitialized) return;
+  await initAudioContext();
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       sampleRate: 44100,
@@ -246,7 +255,6 @@ async function initAudio() {
       noiseSuppression: true,
     },
   });
-
   audioInitialized = true;
 }
 
@@ -416,7 +424,7 @@ async function handleMicToggle(e) {
   if (!isRecording) {
     try {
       await initAudio();
-      startRecording();
+      await startRecording();
     } catch (err) {
       addSystemMessage("Не удалось получить доступ к микрофону: " + err.message);
     }
@@ -426,6 +434,40 @@ async function handleMicToggle(e) {
 }
 
 micBtn.addEventListener("click", handleMicToggle);
+
+// ---------------------------------------------------------------------------
+// Text input
+// ---------------------------------------------------------------------------
+async function sendTextMessage() {
+  const text = textInput.value.trim();
+  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+  textInput.value = "";
+
+  // Init AudioContext for playback (requires user gesture — button click satisfies it)
+  await initAudioContext();
+
+  addUserMessage(text);
+
+  ws.send(JSON.stringify({
+    type: "conversation.item.create",
+    item: {
+      type: "message",
+      role: "user",
+      content: [{ type: "input_text", text }],
+    },
+  }));
+  ws.send(JSON.stringify({ type: "response.create" }));
+}
+
+sendBtn.addEventListener("click", sendTextMessage);
+
+textInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendTextMessage();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Init
