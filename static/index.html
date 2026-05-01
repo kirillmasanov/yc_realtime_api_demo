@@ -8,67 +8,176 @@
 </head>
 <body>
   <div id="app">
-    <header>
-      <h1>Yandex Realtime API</h1>
-      <div class="header-actions">
-        <span id="status">Подключение...</span>
-        <button id="settings-btn" aria-label="Настройки">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
+    <div class="page-layout">
+
+      <!-- ── Левая карточка: чат ───────────────────────── -->
+      <div class="chat-card">
+        <header>
+          <div class="header-brand">
+            <div class="header-logo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+                <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </div>
+            <h1>Yandex AI</h1>
+          </div>
+          <div class="header-actions">
+            <span id="status">Подключение...</span>
+            <button id="settings-btn" aria-label="Настройки">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <section id="settings-panel" hidden>
+          <div class="settings-row">
+            <label for="setting-voice">Голос</label>
+            <select id="setting-voice">
+              <option value="masha">Маша</option>
+              <option value="dasha">Даша</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label for="setting-threshold">
+              Чувствительность VAD
+              <span class="setting-value" id="threshold-val">0.5</span>
+            </label>
+            <input type="range" id="setting-threshold" min="0.1" max="0.9" step="0.1" value="0.5">
+          </div>
+          <div class="settings-row">
+            <label for="setting-silence">
+              Пауза тишины
+              <span class="setting-value" id="silence-val">400</span> мс
+            </label>
+            <input type="range" id="setting-silence" min="200" max="2000" step="100" value="400">
+          </div>
+          <div class="settings-row settings-row--full">
+            <label for="setting-instructions">Системный промпт</label>
+            <textarea id="setting-instructions" rows="4" spellcheck="false"></textarea>
+          </div>
+          <div class="settings-actions">
+            <button id="settings-apply">Применить</button>
+          </div>
+        </section>
+
+        <main id="chat"></main>
+
+        <footer>
+          <button id="mic-btn" disabled aria-label="Push to talk">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <span id="mic-status">Подключение...</span>
+        </footer>
       </div>
-    </header>
 
-    <section id="settings-panel" hidden>
-      <div class="settings-row">
-        <label for="setting-voice">Голос</label>
-        <select id="setting-voice">
-          <option value="masha">Маша</option>
-          <option value="dasha">Даша</option>
-        </select>
+      <!-- ── Правая колонка: три отдельные карточки ────── -->
+      <div class="right-column">
+
+        <!-- Карточка 1: Особенности -->
+        <div class="info-card">
+          <h3 class="card-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Особенности Realtime API
+          </h3>
+          <ul class="feature-list">
+            <li>Голосовой диалог в реальном времени — задержка &lt;500&nbsp;мс</li>
+            <li>Voice Activity Detection (VAD) — авто-определение конца фразы</li>
+            <li>Tool use — инструменты выполняются на сервере</li>
+            <li>PCM16 аудио, 44100&nbsp;Hz, моно, base64 в JSON</li>
+            <li>Совместим с OpenAI Realtime API по протоколу</li>
+            <li>Голоса: <strong>Маша</strong>, <strong>Даша</strong></li>
+            <li><code>web_search</code> — выполняется на стороне Yandex</li>
+          </ul>
+        </div>
+
+        <!-- Карточка 2: Ссылки -->
+        <div class="info-card">
+          <h3 class="card-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            Документация
+          </h3>
+          <ul class="doc-links">
+            <li><a href="https://aistudio.yandex.ru/docs/ru/ai-studio/clientEvents/" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Client Events
+            </a></li>
+            <li><a href="https://aistudio.yandex.ru/docs/ru/ai-studio/serverEvents/" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Server Events
+            </a></li>
+            <li><a href="https://aistudio.yandex.ru/docs/ru/ai-studio/concepts/agents/realtime.html" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Концепция голосовых агентов
+            </a></li>
+            <li><a href="https://aistudio.yandex.ru/docs/ru/ai-studio/concepts/agents/realtime-changes.html" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Отличия от OpenAI
+            </a></li>
+            <li><a href="https://aistudio.yandex.ru/docs/ru/ai-studio/operations/agents/create-voice-agent.html" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Гайд: голосовой агент
+            </a></li>
+            <li><a href="https://aistudio.yandex.ru/docs/ru/ai-studio/operations/agents/voice-text-agent.html" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Агент с текстовыми ответами
+            </a></li>
+          </ul>
+        </div>
+
+        <!-- Карточка 3: План тестирования -->
+        <div class="info-card info-card--grow">
+          <h3 class="card-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            План тестирования
+          </h3>
+          <ol class="test-plan">
+            <li>
+              <span class="test-label">Базовый диалог</span>
+              Скажите «Привет, как дела?» — ассистент должен ответить голосом и текстом
+            </li>
+            <li>
+              <span class="test-label">Калькулятор</span>
+              «Посчитай 137 умножить на 48» — проверяет tool use на сервере
+            </li>
+            <li>
+              <span class="test-label">Веб-поиск</span>
+              «Найди последние новости про ИИ» — использует <code>web_search</code> на стороне Yandex
+            </li>
+            <li>
+              <span class="test-label">VAD — паузы</span>
+              Говорите с паузами внутри фразы — VAD не должен обрывать раньше времени
+            </li>
+            <li>
+              <span class="test-label">Прерывание</span>
+              Начните говорить пока ассистент отвечает — воспроизведение должно остановиться
+            </li>
+            <li>
+              <span class="test-label">Голос и промпт</span>
+              В ⚙️ смените голос на Дашу, измените системный промпт, нажмите «Применить»
+            </li>
+            <li>
+              <span class="test-label">Английский</span>
+              Спросите что-нибудь по-английски — модель отвечает на языке запроса
+            </li>
+          </ol>
+          <div class="tip-box">
+            Открывать только через <code>http://localhost:8000</code> — иначе микрофон не работает
+          </div>
+        </div>
+
       </div>
-
-      <div class="settings-row">
-        <label for="setting-threshold">
-          Чувствительность VAD
-          <span class="setting-value" id="threshold-val">0.5</span>
-        </label>
-        <input type="range" id="setting-threshold" min="0.1" max="0.9" step="0.1" value="0.5">
-      </div>
-
-      <div class="settings-row">
-        <label for="setting-silence">
-          Пауза тишины
-          <span class="setting-value" id="silence-val">400</span> мс
-        </label>
-        <input type="range" id="setting-silence" min="200" max="2000" step="100" value="400">
-      </div>
-
-      <div class="settings-row settings-row--full">
-        <label for="setting-instructions">Системный промпт</label>
-        <textarea id="setting-instructions" rows="5" spellcheck="false"></textarea>
-      </div>
-
-      <div class="settings-actions">
-        <button id="settings-apply">Применить</button>
-      </div>
-    </section>
-
-    <main id="chat"></main>
-
-    <footer>
-      <button id="mic-btn" disabled aria-label="Push to talk">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="1" width="6" height="11" rx="3"/>
-          <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="8" y1="23" x2="16" y2="23"/>
-        </svg>
-      </button>
-      <span id="mic-status">Подключение...</span>
-    </footer>
+    </div>
   </div>
   <script src="/static/app.js"></script>
 </body>
