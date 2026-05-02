@@ -350,6 +350,7 @@ async def websocket_proxy(browser_ws: WebSocket):
 
                 if msg_type == "response.output_item.added":
                     item = msg.get("item", {})
+                    logger.info("output_item.added item: %s", json.dumps(item, ensure_ascii=False))
                     if item.get("type") == "function_call":
                         fn_name = item.get("name", "")
                         if fn_name not in LOCAL_TOOLS:
@@ -362,6 +363,7 @@ async def websocket_proxy(browser_ws: WebSocket):
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})
+                    logger.info("output_item.done item: %s", json.dumps(item, ensure_ascii=False))
                     if item.get("type") == "function_call":
                         fn_name = item.get("name", "")
 
