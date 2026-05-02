@@ -337,6 +337,18 @@ async def websocket_proxy(browser_ws: WebSocket):
             logger.error("browser_to_yandex error: %s", exc)
 
     async def yandex_to_browser():
+        web_search_timer: asyncio.Task | None = None
+
+        async def _fire_web_search_indicator():
+            await asyncio.sleep(1.0)
+            logger.info("Web search detected (no delta after 1s)")
+            await browser_ws.send_json({
+                "type": "tool_call",
+                "name": "web_search",
+                "arguments": "{}",
+                "result": json.dumps({"статус": "выполняется на стороне Yandex"}, ensure_ascii=False),
+            })
+
         try:
             async for raw in yandex_ws:
                 msg = json.loads(raw)
@@ -350,7 +362,6 @@ async def websocket_proxy(browser_ws: WebSocket):
 
                 if msg_type == "response.output_item.added":
                     item = msg.get("item", {})
-                    logger.info("output_item.added item: %s", json.dumps(item, ensure_ascii=False))
                     if item.get("type") == "function_call":
                         fn_name = item.get("name", "")
                         if fn_name not in LOCAL_TOOLS:
@@ -360,10 +371,23 @@ async def websocket_proxy(browser_ws: WebSocket):
                                 "arguments": item.get("arguments", "{}"),
                                 "result": json.dumps({"статус": "выполняется на стороне Yandex"}, ensure_ascii=False),
                             })
+                    elif item.get("type") == "message":
+                        # Start timer: if no audio/text delta arrives within 1s,
+                        # Yandex is executing a server-side tool (web_search / file_search)
+                        if web_search_timer:
+                            web_search_timer.cancel()
+                        web_search_timer = asyncio.create_task(_fire_web_search_indicator())
+
+                if msg_type in (
+                    "response.output_audio.delta", "response.output_text.delta",
+                    "response.audio.delta", "response.text.delta",
+                ):
+                    if web_search_timer:
+                        web_search_timer.cancel()
+                        web_search_timer = None
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})
-                    logger.info("output_item.done item: %s", json.dumps(item, ensure_ascii=False))
                     if item.get("type") == "function_call":
                         fn_name = item.get("name", "")
 
@@ -393,6 +417,7 @@ async def websocket_proxy(browser_ws: WebSocket):
                             "result": result,
                         })
                         continue
+
 
                 if msg_type == "error":
                     logger.error("Yandex error: %s", json.dumps(msg, ensure_ascii=False))
