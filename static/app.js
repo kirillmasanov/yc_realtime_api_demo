@@ -558,13 +558,8 @@ async function handleFileUpload(e) {
     const data = await resp.json();
     currentVectorStoreId = data.vector_store_id;
 
-    // Обновляем инструменты в текущей сессии
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "session.update",
-        session: { tools: buildSessionTools(), tool_choice: "auto" },
-      }));
-    }
+    // Обновляем полный конфиг сессии (включая file_search)
+    applySettings();
 
     setFileStatus(`✓ ${data.filename}`, "ready");
     attachBtn.classList.add("has-file");
