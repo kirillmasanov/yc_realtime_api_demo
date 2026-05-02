@@ -255,7 +255,7 @@ async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(.
 
     # Поллинг до готовности
     async with httpx.AsyncClient(timeout=15) as client:
-        for attempt in range(60):  # максимум 120 секунд
+        for attempt in range(150):  # максимум 300 секунд (5 минут)
             await asyncio.sleep(2)
             resp = await client.get(
                 f"{YANDEX_REST_BASE}/vector_stores/{vector_store_id}",
@@ -272,7 +272,7 @@ async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(.
             if status in ("failed", "expired"):
                 raise HTTPException(500, f"Vector store failed with status: {status}")
         else:
-            raise HTTPException(504, "Vector store creation timed out after 120s")
+            raise HTTPException(504, "Vector store creation timed out after 300s")
 
     rag["vector_store_id"] = vector_store_id
     logger.info("RAG ready: session=%s vector_store_id=%s file=%s", session_id, vector_store_id, file.filename)
