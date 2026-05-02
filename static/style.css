@@ -265,27 +265,14 @@ main#chat {
   box-shadow: var(--shadow-sm);
 }
 
-.message.tool {
-  align-self: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  max-width: 90%;
-  width: fit-content;
-}
-
-.tool-header { font-weight: 600; margin-bottom: 4px; color: var(--accent); }
-
-.tool-args, .tool-result {
-  font-family: "SF Mono", Monaco, Consolas, monospace;
-  font-size: 11px;
-  margin: 4px 0;
-  padding: 5px 8px;
-  background: rgba(0,0,0,0.04);
-  border-radius: 7px;
-  white-space: pre-wrap;
-  overflow-x: auto;
+.message-tool-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -2px;
+  margin-right: 5px;
+  color: var(--accent);
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 
 .message.system {
