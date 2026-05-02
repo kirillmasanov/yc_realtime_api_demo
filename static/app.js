@@ -150,6 +150,8 @@ function getSessionSettings() {
       silence_duration_ms: parseInt(settingSilence.value),
     },
     instructions: settingInstructions.value.trim(),
+    tools: buildSessionTools(),
+    tool_choice: "auto",
   };
 }
 
@@ -206,6 +208,8 @@ function connect() {
         currentVectorStoreId = data.vector_store_id;
         setFileStatus(`✓ ${data.filename}`, "ready");
         attachBtn.classList.add("has-file");
+        // Re-apply settings now that file_search tool is available
+        applySettings();
       }
     } catch {}
   };
