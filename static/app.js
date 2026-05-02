@@ -35,6 +35,7 @@ const fileStatusEl = document.getElementById("file-status");
 
 // RAG state
 let currentVectorStoreId = null;
+let sessionId = null;
 
 // Определения инструментов для session.update из браузера (зеркало main.py TOOLS)
 const TOOLS_BASE = [
@@ -189,7 +190,7 @@ function connect() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
-  ws.onopen = async () => {
+  ws.onopen = () => {
     updateStatus("Подключено", true);
     reconnectAttempts = 0;
     micBtn.disabled = false;
@@ -197,19 +198,6 @@ function connect() {
     sendBtn.disabled = false;
     attachBtn.disabled = false;
     micStatus.textContent = "Нажмите для начала записи";
-
-    // Восстанавливаем RAG-состояние с сервера (если файл уже загружен)
-    try {
-      const resp = await fetch("/api/rag/status");
-      const data = await resp.json();
-      if (data.active) {
-        currentVectorStoreId = data.vector_store_id;
-        setFileStatus(`✓ ${data.filename}`, "ready");
-        attachBtn.classList.add("has-file");
-        // Re-apply settings now that file_search tool is available
-        applySettings();
-      }
-    } catch {}
   };
 
   ws.onclose = () => {
@@ -218,6 +206,11 @@ function connect() {
     textInput.disabled = true;
     sendBtn.disabled = true;
     attachBtn.disabled = true;
+    // Сбрасываем RAG — каждая сессия начинается с чистого листа
+    sessionId = null;
+    currentVectorStoreId = null;
+    attachBtn.classList.remove("has-file");
+    setFileStatus("", "");
     reconnect();
   };
 
@@ -242,6 +235,10 @@ function handleMessage(event) {
   const type = msg.type;
 
   switch (type) {
+    case "app.session_id":
+      sessionId = msg.session_id;
+      break;
+
     case "session.created":
       updateStatus("Сессия активна", true);
       // Применяем пользовательские настройки поверх серверных defaults
@@ -545,6 +542,7 @@ async function handleFileUpload(e) {
   try {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("session_id", sessionId);
 
     const resp = await fetch("/api/upload", { method: "POST", body: formData });
 

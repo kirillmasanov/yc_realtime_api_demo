@@ -5,11 +5,12 @@ import json
 import logging
 import math
 import os
+import uuid
 
 import httpx
 import websockets
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -30,13 +31,40 @@ YANDEX_REST_BASE = "https://ai.api.cloud.yandex.net/v1"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-# ==== RAG состояние (in-memory, сбрасывается при рестарте) ====
+# ==== Per-session RAG state ====
 
-rag_state: dict[str, str | None] = {
-    "vector_store_id": None,
-    "file_id": None,
-    "filename": None,
-}
+# session_id → {vector_store_id, file_id, filename}
+sessions: dict[str, dict[str, str | None]] = {}
+
+
+def _empty_rag() -> dict[str, str | None]:
+    return {"vector_store_id": None, "file_id": None, "filename": None}
+
+
+async def _delete_rag(rag: dict) -> None:
+    """Удаляет vector store и файл из Yandex для завершённой сессии."""
+    if not rag.get("vector_store_id") and not rag.get("file_id"):
+        return
+    headers = yandex_rest_headers()
+    async with httpx.AsyncClient(timeout=10) as client:
+        if rag.get("vector_store_id"):
+            try:
+                await client.delete(
+                    f"{YANDEX_REST_BASE}/vector_stores/{rag['vector_store_id']}",
+                    headers=headers,
+                )
+                logger.info("Deleted vector store: %s", rag["vector_store_id"])
+            except Exception as exc:
+                logger.warning("Failed to delete vector store: %s", exc)
+        if rag.get("file_id"):
+            try:
+                await client.delete(
+                    f"{YANDEX_REST_BASE}/files/{rag['file_id']}",
+                    headers=headers,
+                )
+                logger.info("Deleted file: %s", rag["file_id"])
+            except Exception as exc:
+                logger.warning("Failed to delete file: %s", exc)
 
 
 def yandex_rest_headers() -> dict[str, str]:
@@ -132,15 +160,15 @@ BASE_SESSION: dict = {
 }
 
 
-def build_session_config() -> dict:
-    """Строит session.update с актуальным набором инструментов (включая file_search если активен)."""
+def build_session_config(rag: dict) -> dict:
+    """Строит session.update с актуальным набором инструментов для данной сессии."""
     tools = list(TOOLS)
-    if rag_state["vector_store_id"]:
+    if rag["vector_store_id"]:
         tools.append({
             "type": "function",
             "name": "file_search",
             # Yandex-native формат: vector_store_id передаётся в description
-            "description": rag_state["vector_store_id"],
+            "description": rag["vector_store_id"],
             "parameters": "{}",
         })
     return {"type": "session.update", "session": {**BASE_SESSION, "tools": tools}}
@@ -160,37 +188,41 @@ async def root():
 # ── RAG: загрузка файла ────────────────────────────────────────────────────────
 
 @app.post("/api/upload")
-async def upload_rag_file(file: UploadFile = File(...)):
+async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(...)):
     """Загружает файл в Yandex Files API, создаёт Vector Store, ждёт готовности."""
     if not YANDEX_API_KEY or not YANDEX_FOLDER_ID:
         raise HTTPException(500, "YANDEX_API_KEY or YANDEX_FOLDER_ID not set")
+
+    rag = sessions.get(session_id)
+    if rag is None:
+        raise HTTPException(400, "Unknown session_id")
 
     file_bytes = await file.read()
     headers = yandex_rest_headers()
 
     async with httpx.AsyncClient(timeout=30) as client:
-        # Удаляем предыдущий vector store и файл, если есть
-        if rag_state["vector_store_id"]:
+        # Удаляем предыдущий vector store и файл этой сессии, если есть
+        if rag["vector_store_id"]:
             try:
                 await client.delete(
-                    f"{YANDEX_REST_BASE}/vector_stores/{rag_state['vector_store_id']}",
+                    f"{YANDEX_REST_BASE}/vector_stores/{rag['vector_store_id']}",
                     headers=headers,
                 )
-                logger.info("Deleted old vector store: %s", rag_state["vector_store_id"])
+                logger.info("Deleted old vector store: %s", rag["vector_store_id"])
             except Exception as exc:
                 logger.warning("Failed to delete old vector store: %s", exc)
-            rag_state["vector_store_id"] = None
+            rag["vector_store_id"] = None
 
-        if rag_state["file_id"]:
+        if rag["file_id"]:
             try:
                 await client.delete(
-                    f"{YANDEX_REST_BASE}/files/{rag_state['file_id']}",
+                    f"{YANDEX_REST_BASE}/files/{rag['file_id']}",
                     headers=headers,
                 )
-                logger.info("Deleted old file: %s", rag_state["file_id"])
+                logger.info("Deleted old file: %s", rag["file_id"])
             except Exception as exc:
                 logger.warning("Failed to delete old file: %s", exc)
-            rag_state["file_id"] = None
+            rag["file_id"] = None
 
         # Загружаем файл
         resp = await client.post(
@@ -203,8 +235,8 @@ async def upload_rag_file(file: UploadFile = File(...)):
             raise HTTPException(resp.status_code, f"File upload failed: {resp.text}")
 
         file_id = resp.json()["id"]
-        rag_state["file_id"] = file_id
-        rag_state["filename"] = file.filename
+        rag["file_id"] = file_id
+        rag["filename"] = file.filename
         logger.info("Uploaded file: %s -> %s", file.filename, file_id)
 
         # Создаём Vector Store
@@ -219,7 +251,7 @@ async def upload_rag_file(file: UploadFile = File(...)):
         vector_store_id = resp.json()["id"]
         logger.info("Created vector store: %s", vector_store_id)
 
-    # Поллинг до готовности (вынесен в отдельный клиент чтобы не блокировать первый)
+    # Поллинг до готовности
     async with httpx.AsyncClient(timeout=15) as client:
         for attempt in range(60):  # максимум 120 секунд
             await asyncio.sleep(2)
@@ -240,8 +272,8 @@ async def upload_rag_file(file: UploadFile = File(...)):
         else:
             raise HTTPException(504, "Vector store creation timed out after 120s")
 
-    rag_state["vector_store_id"] = vector_store_id
-    logger.info("RAG ready: vector_store_id=%s file=%s", vector_store_id, file.filename)
+    rag["vector_store_id"] = vector_store_id
+    logger.info("RAG ready: session=%s vector_store_id=%s file=%s", session_id, vector_store_id, file.filename)
 
     return {
         "vector_store_id": vector_store_id,
@@ -250,47 +282,15 @@ async def upload_rag_file(file: UploadFile = File(...)):
     }
 
 
-@app.get("/api/rag/status")
-async def rag_status():
-    """Возвращает текущее состояние RAG."""
-    return {
-        "active": rag_state["vector_store_id"] is not None,
-        "vector_store_id": rag_state["vector_store_id"],
-        "file_id": rag_state["file_id"],
-        "filename": rag_state["filename"],
-    }
-
-
 @app.delete("/api/rag/clear")
-async def clear_rag():
-    """Удаляет vector store и файл из Yandex, сбрасывает состояние."""
-    if not rag_state["vector_store_id"] and not rag_state["file_id"]:
+async def clear_rag(session_id: str):
+    """Удаляет vector store и файл из Yandex для данной сессии."""
+    rag = sessions.get(session_id)
+    if not rag or (not rag["vector_store_id"] and not rag["file_id"]):
         return {"message": "Nothing to clear"}
-
-    headers = yandex_rest_headers()
-    async with httpx.AsyncClient(timeout=15) as client:
-        if rag_state["vector_store_id"]:
-            try:
-                await client.delete(
-                    f"{YANDEX_REST_BASE}/vector_stores/{rag_state['vector_store_id']}",
-                    headers=headers,
-                )
-            except Exception as exc:
-                logger.warning("Failed to delete vector store: %s", exc)
-
-        if rag_state["file_id"]:
-            try:
-                await client.delete(
-                    f"{YANDEX_REST_BASE}/files/{rag_state['file_id']}",
-                    headers=headers,
-                )
-            except Exception as exc:
-                logger.warning("Failed to delete file: %s", exc)
-
-    rag_state["vector_store_id"] = None
-    rag_state["file_id"] = None
-    rag_state["filename"] = None
-    logger.info("RAG cleared")
+    await _delete_rag(rag)
+    rag.update({"vector_store_id": None, "file_id": None, "filename": None})
+    logger.info("RAG cleared for session %s", session_id)
     return {"message": "RAG cleared"}
 
 
@@ -307,6 +307,14 @@ async def websocket_proxy(browser_ws: WebSocket):
         await browser_ws.close()
         return
 
+    # Создаём per-session RAG state
+    session_id = str(uuid.uuid4())
+    session_rag = _empty_rag()
+    sessions[session_id] = session_rag
+
+    # Отправляем session_id браузеру для использования в REST-запросах
+    await browser_ws.send_json({"type": "app.session_id", "session_id": session_id})
+
     headers = {"Authorization": f"Api-Key {YANDEX_API_KEY}"}
 
     try:
@@ -322,9 +330,10 @@ async def websocket_proxy(browser_ws: WebSocket):
             {"type": "error", "error": {"message": f"Yandex connection failed: {exc}"}}
         )
         await browser_ws.close()
+        sessions.pop(session_id, None)
         return
 
-    logger.info("Connected to Yandex Realtime API")
+    logger.info("Connected to Yandex Realtime API (session=%s)", session_id)
 
     async def browser_to_yandex():
         try:
@@ -332,7 +341,7 @@ async def websocket_proxy(browser_ws: WebSocket):
                 data = await browser_ws.receive_json()
                 await yandex_ws.send(json.dumps(data))
         except WebSocketDisconnect:
-            logger.info("Browser disconnected")
+            logger.info("Browser disconnected (session=%s)", session_id)
         except Exception as exc:
             logger.error("browser_to_yandex error: %s", exc)
 
@@ -345,9 +354,8 @@ async def websocket_proxy(browser_ws: WebSocket):
                 logger.info("Yandex event: %s", msg_type)
 
                 if msg_type == "session.created":
-                    logger.info("Session created, sending config (RAG active: %s)", bool(rag_state["vector_store_id"]))
-                    await yandex_ws.send(json.dumps(build_session_config()))
-
+                    logger.info("Session created, sending config (RAG active: %s)", bool(session_rag["vector_store_id"]))
+                    await yandex_ws.send(json.dumps(build_session_config(session_rag)))
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})
@@ -381,14 +389,13 @@ async def websocket_proxy(browser_ws: WebSocket):
                         })
                         continue
 
-
                 if msg_type == "error":
                     logger.error("Yandex error: %s", json.dumps(msg, ensure_ascii=False))
 
                 await browser_ws.send_json(msg)
 
         except websockets.exceptions.ConnectionClosed:
-            logger.info("Yandex WebSocket closed")
+            logger.info("Yandex WebSocket closed (session=%s)", session_id)
         except Exception as exc:
             logger.error("yandex_to_browser error: %s", exc)
 
@@ -408,4 +415,7 @@ async def websocket_proxy(browser_ws: WebSocket):
             await yandex_ws.close()
         except Exception:
             pass
-        logger.info("Session ended")
+        # Удаляем сессию и чистим RAG-ресурсы на Yandex
+        sessions.pop(session_id, None)
+        await _delete_rag(session_rag)
+        logger.info("Session ended (session=%s)", session_id)
