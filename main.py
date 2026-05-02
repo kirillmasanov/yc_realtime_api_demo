@@ -42,7 +42,7 @@ rag_state: dict[str, str | None] = {
 def yandex_rest_headers() -> dict[str, str]:
     return {
         "Authorization": f"Api-Key {YANDEX_API_KEY}",
-        "x-folder-id": YANDEX_FOLDER_ID,
+        "OpenAI-Project": YANDEX_FOLDER_ID,
     }
 
 
@@ -314,6 +314,7 @@ async def websocket_proxy(browser_ws: WebSocket):
             YANDEX_WS_URL,
             additional_headers=headers,
             ping_interval=20,
+            max_size=10 * 1024 * 1024,  # 10MB — Yandex может слать большие аудио-чанки
         )
     except Exception as exc:
         logger.error("Failed to connect to Yandex: %s", exc)
@@ -341,20 +342,28 @@ async def websocket_proxy(browser_ws: WebSocket):
                 msg = json.loads(raw)
                 msg_type = msg.get("type", "")
 
+                logger.info("Yandex event: %s", msg_type)
+
                 if msg_type == "session.created":
                     logger.info("Session created, sending config (RAG active: %s)", bool(rag_state["vector_store_id"]))
                     await yandex_ws.send(json.dumps(build_session_config()))
+
+                if msg_type == "response.output_item.added":
+                    item = msg.get("item", {})
+                    if item.get("type") == "function_call":
+                        fn_name = item.get("name", "")
+                        if fn_name not in LOCAL_TOOLS:
+                            await browser_ws.send_json({
+                                "type": "tool_call",
+                                "name": fn_name,
+                                "arguments": item.get("arguments", "{}"),
+                                "result": json.dumps({"статус": "выполняется на стороне Yandex"}, ensure_ascii=False),
+                            })
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})
                     if item.get("type") == "function_call":
                         fn_name = item.get("name", "")
-
-                        # Серверные инструменты Yandex не должны сюда попадать,
-                        # но если вдруг — пропускаем без локального выполнения
-                        if fn_name not in LOCAL_TOOLS:
-                            await browser_ws.send_json(msg)
-                            continue
 
                         call_id = item.get("call_id")
                         fn_args = item.get("arguments", "{}")
