@@ -339,12 +339,13 @@ async def websocket_proxy(browser_ws: WebSocket):
     async def yandex_to_browser():
         web_search_timer: asyncio.Task | None = None
 
-        async def _fire_web_search_indicator():
-            await asyncio.sleep(1.0)
-            logger.info("Web search detected (no delta after 1s)")
+        async def _fire_tool_indicator():
+            await asyncio.sleep(0.4)
+            tool_name = "file_search" if rag_state["vector_store_id"] else "web_search"
+            logger.info("Server-side tool detected (no delta after 400ms): %s", tool_name)
             await browser_ws.send_json({
                 "type": "tool_call",
-                "name": "web_search",
+                "name": tool_name,
                 "arguments": "{}",
                 "result": json.dumps({"статус": "выполняется на стороне Yandex"}, ensure_ascii=False),
             })
@@ -376,7 +377,7 @@ async def websocket_proxy(browser_ws: WebSocket):
                         # Yandex is executing a server-side tool (web_search / file_search)
                         if web_search_timer:
                             web_search_timer.cancel()
-                        web_search_timer = asyncio.create_task(_fire_web_search_indicator())
+                        web_search_timer = asyncio.create_task(_fire_tool_indicator())
 
                 if msg_type in (
                     "response.output_audio.delta", "response.output_text.delta",
