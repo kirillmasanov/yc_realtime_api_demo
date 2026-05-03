@@ -22,9 +22,12 @@ YANDEX_API_KEY = os.getenv("YANDEX_API_KEY", "")
 YANDEX_FOLDER_ID = os.getenv("YANDEX_FOLDER_ID", "")
 
 YANDEX_WS_URL = (
-    "wss://rest-assistant.api.cloud.yandex.net/v1/realtime/openai"
+    "wss://ai.api.cloud.yandex.net/v1/realtime"
     f"?model=gpt://{YANDEX_FOLDER_ID}/speech-realtime-250923"
 )
+
+# Sample rate для PCM16 аудио — должен совпадать с AudioContext браузера.
+AUDIO_RATE = 44100
 
 YANDEX_REST_BASE = "https://ai.api.cloud.yandex.net/v1"
 
@@ -96,12 +99,12 @@ TOOLS: list[dict] = [
             "additionalProperties": False,
         },
     },
-    # Выполняется на стороне Yandex, parameters передаётся строкой "{}"
+    # Выполняется на стороне Yandex
     {
         "type": "function",
         "name": "web_search",
         "description": "Поиск актуальной информации в интернете. Используй для новостей, текущих событий и любых актуальных данных.",
-        "parameters": "{}",
+        "parameters": {},
     },
 ]
 
@@ -147,18 +150,23 @@ BASE_SESSION: dict = {
         "Отвечай на том языке, на котором к тебе обращаются. "
         "Никогда не используй markdown-разметку: никаких **, *, #, -, > и подобных символов — ответы озвучиваются вслух."
     ),
-    "modalities": ["text", "audio"],
-    "input_audio_format": "pcm16",
-    "output_audio_format": "pcm16",
-    "turn_detection": {
-        "type": "server_vad",
-        "threshold": 0.5,
-        "silence_duration_ms": 400,
+    "output_modalities": ["audio"],
+    "audio": {
+        "input": {
+            "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
+            "languages": ["auto"],
+            "turn_detection": {
+                "type": "server_vad",
+                "threshold": 0.5,
+                "silence_duration_ms": 400,
+            },
+        },
+        "output": {
+            "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
+            "voice": "masha",
+        },
     },
-    "voice": "masha",
-    "speed": 1.2,
     "tool_choice": "auto",
-    "temperature": 0.8,
 }
 
 
@@ -171,7 +179,7 @@ def build_session_config(rag: dict) -> dict:
             "name": "file_search",
             # Yandex-native формат: vector_store_id передаётся в description
             "description": rag["vector_store_id"],
-            "parameters": "{}",
+            "parameters": {},
         })
     return {"type": "session.update", "session": {**BASE_SESSION, "tools": tools}}
 
@@ -345,9 +353,7 @@ async def websocket_proxy(browser_ws: WebSocket):
                     sess = data.get("session", {})
                     tools = sess.get("tools", "—")
                     tool_names = [t.get("name") for t in tools] if isinstance(tools, list) else tools
-                    instr = sess.get("instructions", "")
-                    instr_preview = (instr[:80] + "…") if len(instr) > 80 else instr
-                    logger.info("session.update → Yandex, tools: %s, instructions[:80]: %r", tool_names, instr_preview)
+                    logger.info("session.update → Yandex, tools: %s", tool_names)
                 await yandex_ws.send(json.dumps(data))
         except WebSocketDisconnect:
             logger.info("Browser disconnected (session=%s)", session_id)

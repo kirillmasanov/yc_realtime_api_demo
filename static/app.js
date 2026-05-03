@@ -59,7 +59,7 @@ const TOOLS_BASE = [
     type: "function",
     name: "web_search",
     description: "Поиск актуальной информации в интернете.",
-    parameters: "{}",
+    parameters: {},
   },
 ];
 
@@ -70,7 +70,7 @@ function buildSessionTools() {
       type: "function",
       name: "file_search",
       description: currentVectorStoreId,
-      parameters: "{}",
+      parameters: {},
     });
   }
   return tools;
@@ -146,11 +146,21 @@ function toggleSettings() {
 
 function getSessionSettings() {
   return {
-    voice: settingVoice.value,
-    turn_detection: {
-      type: "server_vad",
-      threshold: parseFloat(settingThreshold.value),
-      silence_duration_ms: parseInt(settingSilence.value),
+    output_modalities: ["audio"],
+    audio: {
+      input: {
+        format: { type: "audio/pcm", rate: 44100 },
+        languages: ["auto"],
+        turn_detection: {
+          type: "server_vad",
+          threshold: parseFloat(settingThreshold.value),
+          silence_duration_ms: parseInt(settingSilence.value),
+        },
+      },
+      output: {
+        format: { type: "audio/pcm", rate: 44100 },
+        voice: settingVoice.value,
+      },
     },
     instructions: settingInstructions.value.trim(),
     tools: buildSessionTools(),
