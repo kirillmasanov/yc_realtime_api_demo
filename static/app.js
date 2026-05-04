@@ -16,7 +16,12 @@ let activeSources = [];
 
 // Chat state
 let currentAssistantBubble = null;
+let currentAssistantTextEl = null;
 let currentAssistantText = "";
+
+// Latency tracking
+let lastUserQueryAt = null;
+let firstDeltaAt = null;
 
 // Reconnect
 let reconnectAttempts = 0;
@@ -439,22 +444,44 @@ function addUserMessage(text) {
   div.textContent = text;
   chat.appendChild(div);
   scrollToBottom();
+  lastUserQueryAt = performance.now();
+  firstDeltaAt = null;
 }
 
 function appendAssistantText(delta) {
   if (!currentAssistantBubble) {
     currentAssistantBubble = document.createElement("div");
     currentAssistantBubble.className = "message assistant";
+    currentAssistantTextEl = document.createElement("span");
+    currentAssistantTextEl.className = "message-text";
+    currentAssistantBubble.appendChild(currentAssistantTextEl);
     chat.appendChild(currentAssistantBubble);
+    if (lastUserQueryAt !== null && firstDeltaAt === null) {
+      firstDeltaAt = performance.now();
+    }
   }
   currentAssistantText += delta;
-  currentAssistantBubble.textContent = currentAssistantText;
+  currentAssistantTextEl.textContent = currentAssistantText;
   scrollToBottom();
 }
 
 function finalizeAssistantMessage() {
+  // Если пузырька нет — это был только function_call без текста.
+  // Сохраняем lastUserQueryAt, чтобы измерить latency финального ответа после тула.
+  if (!currentAssistantBubble) return;
+
+  if (lastUserQueryAt !== null && firstDeltaAt !== null) {
+    const ttfr = Math.round(firstDeltaAt - lastUserQueryAt);
+    const meta = document.createElement("span");
+    meta.className = "message-meta";
+    meta.textContent = `${ttfr} мс`;
+    currentAssistantBubble.appendChild(meta);
+  }
   currentAssistantBubble = null;
+  currentAssistantTextEl = null;
   currentAssistantText = "";
+  lastUserQueryAt = null;
+  firstDeltaAt = null;
 }
 
 function addToolCallMessage(name, args, result) {
