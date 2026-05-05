@@ -46,6 +46,26 @@
             </div>
           </div>
           <div class="settings-row">
+            <label>Язык распознавания</label>
+            <div class="segmented" role="radiogroup" aria-label="Язык распознавания">
+              <input type="radio" name="lang" id="lang-auto" value="auto" checked>
+              <label for="lang-auto">Авто</label>
+              <input type="radio" name="lang" id="lang-ru" value="ru">
+              <label for="lang-ru">Русский</label>
+              <input type="radio" name="lang" id="lang-en" value="en">
+              <label for="lang-en">English</label>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label>Режим ответа</label>
+            <div class="segmented" role="radiogroup" aria-label="Режим ответа">
+              <input type="radio" name="output-mode" id="mode-audio" value="audio" checked>
+              <label for="mode-audio">Голос</label>
+              <input type="radio" name="output-mode" id="mode-text" value="text">
+              <label for="mode-text">Текст</label>
+            </div>
+          </div>
+          <div class="settings-row">
             <div class="settings-label-row">
               <span class="settings-label-with-help">
                 <label for="setting-threshold">Чувствительность VAD</label>

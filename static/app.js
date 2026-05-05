@@ -158,6 +158,16 @@ function getSelectedVoice() {
   return selected ? selected.value : "masha";
 }
 
+function getSelectedLang() {
+  const selected = document.querySelector('input[name="lang"]:checked');
+  return selected ? selected.value : "auto";
+}
+
+function getSelectedOutputMode() {
+  const selected = document.querySelector('input[name="output-mode"]:checked');
+  return selected ? selected.value : "audio";
+}
+
 function getSessionSettings() {
   let instructions = settingInstructions.value.trim();
   if (currentVectorStoreId && currentFilename) {
@@ -166,12 +176,13 @@ function getSessionSettings() {
       "Инструмент search_index ДОСТУПЕН и содержит этот файл. " +
       "Для ЛЮБЫХ вопросов о содержимом этого файла ОБЯЗАТЕЛЬНО вызывай search_index — не отвечай по памяти.";
   }
+  const outputMode = getSelectedOutputMode();
   return {
-    output_modalities: ["audio"],
+    output_modalities: [outputMode],
     audio: {
       input: {
         format: { type: "audio/pcm", rate: 44100 },
-        languages: ["auto"],
+        languages: [getSelectedLang()],
         turn_detection: {
           type: "server_vad",
           threshold: parseFloat(settingThreshold.value),
