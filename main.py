@@ -161,7 +161,7 @@ BASE_SESSION: dict = {
             "turn_detection": {
                 "type": "server_vad",
                 "threshold": 0.5,
-                "silence_duration_ms": 400,
+                "silence_duration_ms": 800,
             },
         },
         "output": {
