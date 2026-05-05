@@ -84,7 +84,7 @@ function buildSessionTools() {
 // Settings DOM
 const settingsPanel = document.getElementById("settings-panel");
 const settingsBtn = document.getElementById("settings-btn");
-const settingVoice = document.getElementById("setting-voice");
+const voiceInputs = document.querySelectorAll('input[name="voice"]');
 const settingThreshold = document.getElementById("setting-threshold");
 const settingThresholdVal = document.getElementById("threshold-val");
 const settingSilence = document.getElementById("setting-silence");
@@ -130,13 +130,16 @@ function escapeHtml(text) {
 const DEFAULT_INSTRUCTIONS =
   "Ты — голосовой ассистент-демонстратор возможностей Yandex Realtime API. " +
   "Отвечай кратко, дружелюбно и по существу. " +
-  "У тебя есть инструменты: калькулятор для вычислений, поиск в интернете для актуальной информации " +
-  "и поиск по содержимому загруженного документа (если пользователь приложил файл). " +
-  "Используй интернет-поиск для новостей, актуальных событий и любой информации, которой у тебя может не быть. " +
-  "Если у тебя есть инструмент поиска по документу/файлу — обязательно используй его для любых вопросов " +
-  "о содержимом приложенного документа, не отвечай по памяти. Если пользователь упоминает имя инструмента " +
-  "(например file_search), всё равно используй доступный тебе инструмент поиска по файлу. " +
-  "Если инструмента поиска по файлу нет в твоём списке — сообщи, что файл не загружен. " +
+  "Твои инструменты: " +
+  "calculator (математические вычисления); " +
+  "web_search (актуальная информация из интернета — новости, события, погода, курсы); " +
+  "search_index — поиск по содержимому загруженного пользователем документа. " +
+  "Этот инструмент в API может называться search_index или file_search — это одно и то же. " +
+  "Если он есть в твоём списке инструментов, значит документ уже загружен и проиндексирован: " +
+  "обязательно вызывай его для любых вопросов о содержимом приложенного файла, не отвечай по памяти. " +
+  "Если же его нет в твоём списке — значит файл не загружен, так и сообщи пользователю. " +
+  "Используй web_search для новостей, актуальных событий и любой информации, " +
+  "которой у тебя может не быть в обучении. " +
   "ВАЖНО: перед вызовом функции ничего не говори — просто вызови функцию молча. " +
   "Ответ формируй только после получения результата функции. " +
   "Отвечай на том языке, на котором к тебе обращаются. " +
@@ -147,6 +150,11 @@ settingInstructions.value = DEFAULT_INSTRUCTIONS;
 function toggleSettings() {
   settingsPanel.hidden = !settingsPanel.hidden;
   settingsBtn.classList.toggle("active", !settingsPanel.hidden);
+}
+
+function getSelectedVoice() {
+  const selected = document.querySelector('input[name="voice"]:checked');
+  return selected ? selected.value : "masha";
 }
 
 function getSessionSettings() {
@@ -164,7 +172,7 @@ function getSessionSettings() {
       },
       output: {
         format: { type: "audio/pcm", rate: 44100 },
-        voice: settingVoice.value,
+        voice: getSelectedVoice(),
       },
     },
     instructions: settingInstructions.value.trim(),
