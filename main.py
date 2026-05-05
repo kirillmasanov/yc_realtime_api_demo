@@ -10,8 +10,8 @@ import uuid
 import httpx
 import websockets
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
@@ -201,8 +201,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")
-async def root():
-    return FileResponse("static/index.html")
+async def root(request: Request):
+    root_path = request.scope.get("root_path", "").rstrip("/")
+    with open("static/index.html", encoding="utf-8") as f:
+        html = f.read()
+    html = html.replace("<head>", f'<head>\n  <base href="{root_path}/">', 1)
+    return HTMLResponse(html)
 
 
 @app.get("/api/health")

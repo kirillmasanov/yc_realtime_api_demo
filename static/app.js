@@ -223,7 +223,9 @@ function updateStatus(text, connected) {
 // ---------------------------------------------------------------------------
 function connect() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+  const wsUrl = new URL("ws", document.baseURI);
+  wsUrl.protocol = protocol;
+  ws = new WebSocket(wsUrl.href);
 
   ws.onopen = () => {
     updateStatus("Подключено", true);
@@ -336,7 +338,7 @@ function handleMessage(event) {
 async function initAudioContext() {
   if (audioContext) return;
   audioContext = new AudioContext({ sampleRate: 44100 });
-  await audioContext.audioWorklet.addModule("/static/pcm-worklet.js");
+  await audioContext.audioWorklet.addModule(new URL("static/pcm-worklet.js", document.baseURI).href);
 }
 
 async function initAudio() {
@@ -602,7 +604,7 @@ async function handleFileUpload(e) {
     formData.append("file", file);
     formData.append("session_id", sessionId);
 
-    const resp = await fetch("/api/upload", { method: "POST", body: formData });
+    const resp = await fetch("api/upload", { method: "POST", body: formData });
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
