@@ -11,3 +11,8 @@ wheels/
 
 # Secrets
 .env
+
+# Claude Code
+CLAUDE.md
+PLAN.md
+task.md
