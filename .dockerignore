@@ -1,0 +1,7 @@
+.env
+.venv
+__pycache__
+*.py[oc]
+CLAUDE.md
+PLAN.md
+task.md
