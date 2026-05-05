@@ -1,4 +1,10 @@
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+// Должен совпадать с AUDIO_RATE на сервере и rate в pcm-worklet.
+const AUDIO_RATE = 44100;
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 let ws = null;
@@ -43,34 +49,12 @@ let currentVectorStoreId = null;
 let currentFilename = null;
 let sessionId = null;
 
-// Определения инструментов для session.update из браузера (зеркало main.py TOOLS)
-const TOOLS_BASE = [
-  {
-    type: "function",
-    name: "calculator",
-    description: "Вычисляет математическое выражение. Используй для любых арифметических расчётов.",
-    parameters: {
-      type: "object",
-      properties: {
-        expression: {
-          type: "string",
-          description: "Математическое выражение, например '2 + 2 * 3' или 'sqrt(144)'",
-        },
-      },
-      required: ["expression"],
-      additionalProperties: false,
-    },
-  },
-  {
-    type: "function",
-    name: "web_search",
-    description: "Поиск актуальной информации в интернете.",
-    parameters: {},
-  },
-];
+// Определения инструментов приходят с сервера в событии app.session_id —
+// единственный источник правды (см. TOOLS в main.py).
+let serverTools = [];
 
 function buildSessionTools() {
-  const tools = [...TOOLS_BASE];
+  const tools = [...serverTools];
   if (currentVectorStoreId) {
     tools.push({
       type: "function",
@@ -85,7 +69,6 @@ function buildSessionTools() {
 // Settings DOM
 const settingsPanel = document.getElementById("settings-panel");
 const settingsBtn = document.getElementById("settings-btn");
-const voiceInputs = document.querySelectorAll('input[name="voice"]');
 const settingThreshold = document.getElementById("setting-threshold");
 const settingThresholdVal = document.getElementById("threshold-val");
 const settingSilence = document.getElementById("setting-silence");
@@ -181,7 +164,7 @@ function getSessionSettings() {
     output_modalities: [outputMode],
     audio: {
       input: {
-        format: { type: "audio/pcm", rate: 44100 },
+        format: { type: "audio/pcm", rate: AUDIO_RATE },
         languages: [getSelectedLang()],
         turn_detection: {
           type: "server_vad",
@@ -190,7 +173,7 @@ function getSessionSettings() {
         },
       },
       output: {
-        format: { type: "audio/pcm", rate: 44100 },
+        format: { type: "audio/pcm", rate: AUDIO_RATE },
         voice: getSelectedVoice(),
       },
     },
@@ -286,6 +269,7 @@ function handleMessage(event) {
   switch (type) {
     case "app.session_id":
       sessionId = msg.session_id;
+      serverTools = msg.tools || [];
       break;
 
     case "session.created":
@@ -348,7 +332,7 @@ function handleMessage(event) {
 // ---------------------------------------------------------------------------
 async function initAudioContext() {
   if (audioContext) return;
-  audioContext = new AudioContext({ sampleRate: 44100 });
+  audioContext = new AudioContext({ sampleRate: AUDIO_RATE });
   await audioContext.audioWorklet.addModule(new URL("static/pcm-worklet.js", document.baseURI).href);
 }
 
@@ -357,7 +341,7 @@ async function initAudio() {
   await initAudioContext();
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
-      sampleRate: 44100,
+      sampleRate: AUDIO_RATE,
       channelCount: 1,
       echoCancellation: true,
       noiseSuppression: true,
@@ -436,7 +420,7 @@ async function enqueueAudio(base64Delta) {
     float32Array[i] = int16Array[i] / 0x8000;
   }
 
-  const audioBuffer = audioContext.createBuffer(1, float32Array.length, 44100);
+  const audioBuffer = audioContext.createBuffer(1, float32Array.length, AUDIO_RATE);
   audioBuffer.getChannelData(0).set(float32Array);
 
   const source = audioContext.createBufferSource();
@@ -652,6 +636,7 @@ async function handleFileUpload(e) {
   } catch (err) {
     setFileStatus(`Ошибка: ${err.message}`, "error");
     currentVectorStoreId = null;
+    currentFilename = null;
   } finally {
     attachBtn.disabled = false;
   }

@@ -11,7 +11,7 @@ import httpx
 import websockets
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
@@ -341,8 +341,14 @@ async def websocket_proxy(browser_ws: WebSocket):
     session_rag = _empty_rag()
     sessions[session_id] = session_rag
 
-    # Отправляем session_id браузеру для использования в REST-запросах
-    await browser_ws.send_json({"type": "app.session_id", "session_id": session_id})
+    # Отправляем session_id и определения инструментов браузеру.
+    # Браузер использует TOOLS как единственный источник правды
+    # при построении session.update (без дублирования описаний).
+    await browser_ws.send_json({
+        "type": "app.session_id",
+        "session_id": session_id,
+        "tools": TOOLS,
+    })
 
     headers = {"Authorization": f"Api-Key {YANDEX_API_KEY}"}
 
@@ -403,9 +409,8 @@ async def websocket_proxy(browser_ws: WebSocket):
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})
-                    if item.get("type") == "function_call":
+                    if item.get("type") == "function_call" and item.get("name", "") in LOCAL_TOOLS:
                         fn_name = item.get("name", "")
-
                         call_id = item.get("call_id")
                         fn_args = item.get("arguments", "{}")
                         logger.info("Tool call: %s(%s)", fn_name, fn_args)
