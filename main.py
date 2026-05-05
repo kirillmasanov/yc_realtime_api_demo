@@ -176,6 +176,7 @@ BASE_SESSION: dict = {
 def build_session_config(rag: dict) -> dict:
     """Строит session.update с актуальным набором инструментов для данной сессии."""
     tools = list(TOOLS)
+    extra: dict = {}
     if rag["vector_store_id"]:
         tools.append({
             "type": "function",
@@ -184,7 +185,13 @@ def build_session_config(rag: dict) -> dict:
             "description": rag["vector_store_id"],
             "parameters": {},
         })
-    return {"type": "session.update", "session": {**BASE_SESSION, "tools": tools}}
+        extra["instructions"] = (
+            BASE_SESSION["instructions"]
+            + f"\n\nВАЖНО: файл «{rag['filename']}» загружен и проиндексирован. "
+            "Инструмент search_index ДОСТУПЕН и содержит этот файл. "
+            "Для ЛЮБЫХ вопросов о содержимом этого файла ОБЯЗАТЕЛЬНО вызывай search_index — не отвечай по памяти."
+        )
+    return {"type": "session.update", "session": {**BASE_SESSION, **extra, "tools": tools}}
 
 
 # ==== FastAPI приложение ====
@@ -370,6 +377,16 @@ async def websocket_proxy(browser_ws: WebSocket):
                 msg_type = msg.get("type", "")
 
                 logger.info("Yandex event: %s", msg_type)
+
+                if msg_type == "session.updated":
+                    sess = msg.get("session", {})
+                    tools = sess.get("tools", [])
+                    if isinstance(tools, list):
+                        names = []
+                        for t in tools:
+                            n = t.get("name") or (t.get("function") or {}).get("name")
+                            names.append(n)
+                        logger.info("  → Yandex session tools: %s", names)
 
                 if msg_type == "session.created":
                     logger.info("Session created, sending config (RAG active: %s)", bool(session_rag["vector_store_id"]))

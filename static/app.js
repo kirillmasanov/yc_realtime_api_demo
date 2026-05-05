@@ -40,6 +40,7 @@ const fileStatusEl = document.getElementById("file-status");
 
 // RAG state
 let currentVectorStoreId = null;
+let currentFilename = null;
 let sessionId = null;
 
 // Определения инструментов для session.update из браузера (зеркало main.py TOOLS)
@@ -158,6 +159,13 @@ function getSelectedVoice() {
 }
 
 function getSessionSettings() {
+  let instructions = settingInstructions.value.trim();
+  if (currentVectorStoreId && currentFilename) {
+    instructions +=
+      `\n\nВАЖНО: файл «${currentFilename}» загружен и проиндексирован. ` +
+      "Инструмент search_index ДОСТУПЕН и содержит этот файл. " +
+      "Для ЛЮБЫХ вопросов о содержимом этого файла ОБЯЗАТЕЛЬНО вызывай search_index — не отвечай по памяти.";
+  }
   return {
     output_modalities: ["audio"],
     audio: {
@@ -175,7 +183,7 @@ function getSessionSettings() {
         voice: getSelectedVoice(),
       },
     },
-    instructions: settingInstructions.value.trim(),
+    instructions,
     tools: buildSessionTools(),
     tool_choice: "auto",
   };
@@ -236,6 +244,7 @@ function connect() {
     // Сбрасываем RAG — каждая сессия начинается с чистого листа
     sessionId = null;
     currentVectorStoreId = null;
+    currentFilename = null;
     attachBtn.classList.remove("has-file");
     setFileStatus("", "");
     reconnect();
@@ -602,9 +611,27 @@ async function handleFileUpload(e) {
 
     const data = await resp.json();
     currentVectorStoreId = data.vector_store_id;
+    currentFilename = data.filename;
 
-    // Обновляем полный конфиг сессии (включая file_search)
+    // Обновляем конфиг сессии: tools + instructions с упоминанием файла
     applySettings();
+
+    // Инжектируем факт загрузки прямо в историю диалога, чтобы модель
+    // гарантированно "видела" файл в своём контексте, не полагаясь только
+    // на session.update
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{
+            type: "input_text",
+            text: `[Системный контекст: файл «${data.filename}» загружен и проиндексирован. Инструмент search_index теперь доступен. Используй его для ответов на вопросы об этом файле.]`,
+          }],
+        },
+      }));
+    }
 
     setFileStatus(`✓ ${data.filename}`, "ready");
     attachBtn.classList.add("has-file");
