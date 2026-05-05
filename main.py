@@ -205,6 +205,11 @@ async def root():
     return FileResponse("static/index.html")
 
 
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
+
 # ── RAG: загрузка файла ────────────────────────────────────────────────────────
 
 @app.post("/api/upload")
