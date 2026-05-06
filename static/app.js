@@ -225,10 +225,9 @@ function connect() {
     updateStatus("Подключено", true);
     reconnectAttempts = 0;
     micBtn.disabled = false;
-    textInput.disabled = false;
-    sendBtn.disabled = false;
     attachBtn.disabled = false;
     micStatus.textContent = "Нажмите для начала записи";
+    // textInput и sendBtn включаются в session.updated — сессия готова принимать сообщения
   };
 
   ws.onclose = () => {
@@ -280,6 +279,8 @@ function handleMessage(event) {
 
     case "session.updated":
       updateStatus("Сессия активна", true);
+      textInput.disabled = false;
+      sendBtn.disabled = false;
       break;
 
     // Audio response chunks
@@ -333,12 +334,12 @@ function handleMessage(event) {
 async function initAudioContext() {
   if (audioContext) return;
   audioContext = new AudioContext({ sampleRate: AUDIO_RATE });
-  await audioContext.audioWorklet.addModule(new URL("static/pcm-worklet.js", document.baseURI).href);
 }
 
 async function initAudio() {
   if (audioInitialized) return;
   await initAudioContext();
+  await audioContext.audioWorklet.addModule(new URL("static/pcm-worklet.js", document.baseURI).href);
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       sampleRate: AUDIO_RATE,
