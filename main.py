@@ -187,10 +187,14 @@ def build_session_config(rag: dict) -> dict:
         })
         extra["instructions"] = (
             BASE_SESSION["instructions"]
-            + f"\n\nВАЖНО: файл «{rag['filename']}» загружен и проиндексирован. "
-            "Инструмент search_index ДОСТУПЕН и содержит этот файл. "
-            "Для ЛЮБЫХ вопросов о содержимом этого файла ОБЯЗАТЕЛЬНО вызывай search_index — не отвечай по памяти."
+            + f"\n\nФАЙЛ ЗАГРУЖЕН: «{rag['filename']}» проиндексирован и доступен через инструмент search_index. "
+            "СТРОГОЕ ПРАВИЛО: на любой вопрос о содержимом этого файла ты ОБЯЗАН сначала вызвать search_index, и только потом отвечать. "
+            "Отвечать без вызова search_index ЗАПРЕЩЕНО — даже если кажется, что знаешь ответ. "
+            "Фраза «не удаётся получить информацию» недопустима — просто вызови search_index и используй результат."
         )
+        # Форсируем вызов search_index при активном RAG —
+        # модель в "auto" режиме часто игнорирует инструмент.
+        extra["tool_choice"] = {"type": "function", "name": "search_index"}
     return {"type": "session.update", "session": {**BASE_SESSION, **extra, "tools": tools}}
 
 
@@ -272,7 +276,11 @@ async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(.
         resp = await client.post(
             f"{YANDEX_REST_BASE}/vector_stores",
             headers={**headers, "Content-Type": "application/json"},
-            json={"name": file.filename, "file_ids": [file_id]},
+            json={
+                "name": file.filename,
+                "description": f"Содержимое файла «{file.filename}», загруженного пользователем.",
+                "file_ids": [file_id],
+            },
         )
         if resp.status_code not in (200, 201):
             raise HTTPException(resp.status_code, f"Vector store creation failed: {resp.text}")
@@ -378,7 +386,8 @@ async def websocket_proxy(browser_ws: WebSocket):
                     sess = data.get("session", {})
                     tools = sess.get("tools", "—")
                     tool_names = [t.get("name") for t in tools] if isinstance(tools, list) else tools
-                    logger.info("session.update → Yandex, tools: %s", tool_names)
+                    logger.info("session.update → Yandex, tools=%s, tool_choice=%s",
+                                tool_names, sess.get("tool_choice", "—"))
                 await yandex_ws.send(json.dumps(data))
         except WebSocketDisconnect:
             logger.info("Browser disconnected (session=%s)", session_id)
@@ -401,11 +410,28 @@ async def websocket_proxy(browser_ws: WebSocket):
                         for t in tools:
                             n = t.get("name") or (t.get("function") or {}).get("name")
                             names.append(n)
-                        logger.info("  → Yandex session tools: %s", names)
+                        logger.info("  → Yandex session tools=%s, tool_choice=%s",
+                                    names, sess.get("tool_choice", "—"))
 
                 if msg_type == "session.created":
                     logger.info("Session created, sending config (RAG active: %s)", bool(session_rag["vector_store_id"]))
                     await yandex_ws.send(json.dumps(build_session_config(session_rag)))
+
+                if msg_type == "conversation.item.input_audio_transcription.completed":
+                    logger.info("USER said: %r", msg.get("transcript", ""))
+
+                if msg_type == "response.created":
+                    logger.info("response.created id=%s", msg.get("response", {}).get("id"))
+
+                if msg_type == "response.output_audio_transcript.done":
+                    logger.info("ASSISTANT said [resp=%s]: %r",
+                                msg.get("response_id", "?"), msg.get("transcript", ""))
+
+                if msg_type == "response.done":
+                    resp = msg.get("response", {})
+                    usage = resp.get("usage", {})
+                    logger.info("response.done id=%s status=%s input_tokens=%s",
+                                resp.get("id"), resp.get("status"), usage.get("input_tokens"))
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})

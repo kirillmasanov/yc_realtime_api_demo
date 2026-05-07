@@ -179,7 +179,10 @@ function getSessionSettings() {
     },
     instructions,
     tools: buildSessionTools(),
-    tool_choice: "auto",
+    // При активном RAG форсируем search_index — иначе модель часто игнорирует инструмент
+    tool_choice: currentVectorStoreId
+      ? { type: "function", name: "search_index" }
+      : "auto",
   };
 }
 
@@ -625,7 +628,7 @@ async function handleFileUpload(e) {
           role: "user",
           content: [{
             type: "input_text",
-            text: `[Системный контекст: файл «${data.filename}» загружен и проиндексирован. Инструмент search_index теперь доступен. Используй его для ответов на вопросы об этом файле.]`,
+            text: `[Системный контекст: файл «${data.filename}» загружен и проиндексирован. Инструмент search_index ДОСТУПЕН. ОБЯЗАТЕЛЬНО вызывай search_index для любых вопросов об этом файле — отвечать без вызова инструмента ЗАПРЕЩЕНО.]`,
           }],
         },
       }));
