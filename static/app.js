@@ -24,6 +24,10 @@ let activeSources = [];
 let currentAssistantBubble = null;
 let currentAssistantTextEl = null;
 let currentAssistantText = "";
+let currentUserBubble = null;
+let currentUserItemId = null;
+let currentItemRawText = "";     // full raw transcript from Yandex for the current item
+let lastCompletedFullText = "";  // full raw transcript of the last completed item
 
 // Latency tracking
 let lastUserQueryAt = null;
@@ -142,7 +146,7 @@ function getSelectedVoice() {
 
 function getSelectedLang() {
   const selected = document.querySelector('input[name="lang"]:checked');
-  return selected ? selected.value : "auto";
+  return selected ? selected.value : "ru-RU";
 }
 
 function getSelectedOutputMode() {
@@ -299,10 +303,10 @@ function handleMessage(event) {
       appendAssistantText(msg.delta);
       break;
 
-    // User speech transcription
+    // User speech transcription (may fire multiple times with growing text)
     case "conversation.item.input_audio_transcription.completed":
       if (msg.transcript) {
-        addUserMessage(msg.transcript);
+        upsertUserMessage(msg.item_id, msg.transcript);
       }
       break;
 
@@ -314,6 +318,10 @@ function handleMessage(event) {
     // User started speaking — new turn begins
     case "input_audio_buffer.speech_started":
       finalizeAssistantMessage(); // сбрасываем пузырёк: response.done мог не прийти при прерывании
+      if (currentUserBubble) lastCompletedFullText = currentItemRawText || currentUserBubble.textContent || "";
+      currentUserBubble = null;
+      currentUserItemId = null;
+      currentItemRawText = "";
       if (isRecording) stopPlayback();
       break;
 
@@ -455,14 +463,33 @@ function stopPlayback() {
 // ---------------------------------------------------------------------------
 // Chat UI
 // ---------------------------------------------------------------------------
-function addUserMessage(text) {
-  const div = document.createElement("div");
-  div.className = "message user";
-  div.textContent = text;
-  chat.appendChild(div);
+function upsertUserMessage(itemId, text) {
+  currentItemRawText = text;
+
+  // Strip prefix already shown in a previous turn (Yandex sends cumulative transcripts)
+  let displayText = text;
+  if (!currentUserBubble && lastCompletedFullText && text.startsWith(lastCompletedFullText)) {
+    displayText = text.substring(lastCompletedFullText.length).trimStart();
+    if (!displayText) return;
+  }
+
+  if (currentUserBubble && currentUserItemId === itemId) {
+    currentUserBubble.textContent = displayText;
+  } else {
+    const div = document.createElement("div");
+    div.className = "message user";
+    div.textContent = displayText;
+    chat.appendChild(div);
+    currentUserBubble = div;
+    currentUserItemId = itemId;
+    lastUserQueryAt = performance.now();
+    firstDeltaAt = null;
+  }
   scrollToBottom();
-  lastUserQueryAt = performance.now();
-  firstDeltaAt = null;
+}
+
+function addUserMessage(text) {
+  upsertUserMessage(null, text);
 }
 
 function appendAssistantText(delta) {

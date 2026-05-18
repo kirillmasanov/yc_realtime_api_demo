@@ -48,9 +48,9 @@
           <div class="settings-row">
             <label>Язык распознавания</label>
             <div class="segmented" role="radiogroup" aria-label="Язык распознавания">
-              <input type="radio" name="lang" id="lang-auto" value="auto" checked>
+              <input type="radio" name="lang" id="lang-auto" value="auto">
               <label for="lang-auto">Авто</label>
-              <input type="radio" name="lang" id="lang-ru" value="ru-RU">
+              <input type="radio" name="lang" id="lang-ru" value="ru-RU" checked>
               <label for="lang-ru">Русский</label>
               <input type="radio" name="lang" id="lang-en" value="en-US">
               <label for="lang-en">English</label>
@@ -95,9 +95,9 @@
                   </svg>
                 </span>
               </span>
-              <span class="setting-value"><span id="silence-val">800</span> мс</span>
+              <span class="setting-value"><span id="silence-val">1000</span> мс</span>
             </div>
-            <input type="range" id="setting-silence" min="200" max="2000" step="100" value="800">
+            <input type="range" id="setting-silence" min="200" max="2000" step="100" value="1000">
           </div>
           <div class="settings-row">
             <label for="setting-instructions">Системный промпт</label>

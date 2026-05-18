@@ -156,11 +156,11 @@ BASE_SESSION: dict = {
     "audio": {
         "input": {
             "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
-            "languages": ["auto"],
+            "languages": ["ru-RU"],
             "turn_detection": {
                 "type": "server_vad",
                 "threshold": 0.5,
-                "silence_duration_ms": 800,
+                "silence_duration_ms": 1000,
             },
         },
         "output": {
