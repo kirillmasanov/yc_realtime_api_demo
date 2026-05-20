@@ -46,6 +46,19 @@
             </div>
           </div>
           <div class="settings-row">
+            <label>Амплуа</label>
+            <div class="segmented" role="radiogroup" aria-label="Амплуа">
+              <input type="radio" name="role" id="role-neutral" value="neutral">
+              <label for="role-neutral">Нейтральное</label>
+              <input type="radio" name="role" id="role-good" value="good">
+              <label for="role-good">Радостное</label>
+              <input type="radio" name="role" id="role-friendly" value="friendly" checked>
+              <label for="role-friendly">Дружелюбное</label>
+              <input type="radio" name="role" id="role-strict" value="strict">
+              <label for="role-strict">Строгое</label>
+            </div>
+          </div>
+          <div class="settings-row">
             <label>Язык распознавания</label>
             <div class="segmented" role="radiogroup" aria-label="Язык распознавания">
               <input type="radio" name="lang" id="lang-auto" value="auto">
@@ -171,7 +184,7 @@
             <li><strong>Поиск по документу.</strong> Прикрепите файл через скрепку, дождитесь зелёного значка и задайте конкретный вопрос по содержимому - например, «найди в документе упоминания …» или «что сказано про …».</li>
             <li><strong>VAD – паузы.</strong> Говорите с паузами внутри фразы – ассистент не должен прерывать раньше времени.</li>
             <li><strong>Прерывание.</strong> Начните говорить пока ассистент отвечает – воспроизведение должно остановиться.</li>
-            <li><strong>Настройки.</strong> В ⚙️ смените голос на Дашу, выберите язык распознавания, режим ответа или измените системный промпт – нажмите «Применить».</li>
+            <li><strong>Настройки.</strong> В ⚙️ смените голос на Дашу, попробуйте разные амплуа, выберите язык распознавания, режим ответа или измените системный промпт – нажмите «Применить».</li>
             <li><strong>Другой язык.</strong> Переключите язык распознавания на English, спросите что-нибудь по-английски – модель ответит на английском.</li>
           </ol>
         </div>

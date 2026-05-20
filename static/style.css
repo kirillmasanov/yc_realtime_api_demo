@@ -465,11 +465,91 @@ main#chat {
 }
 
 .message-meta {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 4px;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Token usage badge + tooltip */
+.token-meta {
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+
+.token-meta::before {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 10px;
+  background: var(--border);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.token-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+}
+
+/* Shared fixed tooltip — lives in <body>, positioned by JS */
+#token-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  width: 220px;
+  background: var(--assistant-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(15,23,42,0.13);
+  padding: 12px 14px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#token-tooltip.visible {
+  display: block;
+}
+
+.token-tooltip-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.token-tooltip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 5px 0;
+  color: var(--text);
+}
+
+.token-tooltip-dots {
+  flex: 1;
+  border-bottom: 1.5px dotted var(--border);
+  margin: 0 4px;
+  position: relative;
+  top: -3px;
+}
+
+.token-tooltip-row--indent {
+  padding-left: 14px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.token-tooltip-val {
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 

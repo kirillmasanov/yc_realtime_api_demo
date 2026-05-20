@@ -166,6 +166,7 @@ BASE_SESSION: dict = {
         "output": {
             "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
             "voice": "masha",
+            "role": "friendly",
         },
     },
     "tool_choice": "auto",
@@ -429,8 +430,18 @@ async def websocket_proxy(browser_ws: WebSocket):
                 if msg_type == "response.done":
                     resp = msg.get("response", {})
                     usage = resp.get("usage", {})
-                    logger.info("response.done id=%s status=%s input_tokens=%s",
-                                resp.get("id"), resp.get("status"), usage.get("input_tokens"))
+                    in_det = usage.get("input_token_details", {})
+                    out_det = usage.get("output_token_details", {})
+                    logger.info(
+                        "response.done id=%s status=%s | "
+                        "input=%s (text=%s cached=%s) output=%s (text=%s audio=%s) total=%s",
+                        resp.get("id"), resp.get("status"),
+                        usage.get("input_tokens"),
+                        in_det.get("text_tokens"), in_det.get("cached_tokens"),
+                        usage.get("output_tokens"),
+                        out_det.get("text_tokens"), out_det.get("audio_tokens"),
+                        usage.get("total_tokens"),
+                    )
 
                 if msg_type == "response.output_item.done":
                     item = msg.get("item", {})

@@ -80,6 +80,53 @@ const settingSilenceVal = document.getElementById("silence-val");
 const settingInstructions = document.getElementById("setting-instructions");
 const settingsApply = document.getElementById("settings-apply");
 
+// Shared token tooltip (lives in <body>, positioned via JS to avoid overflow clipping)
+const tokenTooltipEl = document.createElement("div");
+tokenTooltipEl.id = "token-tooltip";
+document.body.appendChild(tokenTooltipEl);
+
+function showTokenTooltip(anchor, rows, title) {
+  tokenTooltipEl.innerHTML = "";
+  const titleEl = document.createElement("div");
+  titleEl.className = "token-tooltip-title";
+  titleEl.textContent = title;
+  tokenTooltipEl.appendChild(titleEl);
+  rows.forEach(({ label, value, indent }) => {
+    const row = document.createElement("div");
+    row.className = "token-tooltip-row" + (indent ? " token-tooltip-row--indent" : "");
+    const lbl = document.createElement("span");
+    lbl.textContent = label;
+    const dots = document.createElement("span");
+    dots.className = "token-tooltip-dots";
+    const val = document.createElement("span");
+    val.className = "token-tooltip-val";
+    val.textContent = value;
+    row.append(lbl, dots, val);
+    tokenTooltipEl.appendChild(row);
+  });
+
+  tokenTooltipEl.classList.add("visible");
+
+  const rect = anchor.getBoundingClientRect();
+  const tw = tokenTooltipEl.offsetWidth;
+  const th = tokenTooltipEl.offsetHeight;
+  const gap = 10;
+
+  let top = rect.top - th - gap;
+  if (top < 8) top = rect.bottom + gap;   // flip below if not enough room above
+
+  let left = rect.left;
+  if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+  if (left < 8) left = 8;
+
+  tokenTooltipEl.style.top = `${top}px`;
+  tokenTooltipEl.style.left = `${left}px`;
+}
+
+function hideTokenTooltip() {
+  tokenTooltipEl.classList.remove("visible");
+}
+
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -149,6 +196,11 @@ function getSelectedLang() {
   return selected ? selected.value : "ru-RU";
 }
 
+function getSelectedRole() {
+  const selected = document.querySelector('input[name="role"]:checked');
+  return selected ? selected.value : "friendly";
+}
+
 function getSelectedOutputMode() {
   const selected = document.querySelector('input[name="output-mode"]:checked');
   return selected ? selected.value : "audio";
@@ -178,6 +230,7 @@ function getSessionSettings() {
       output: {
         format: { type: "audio/pcm", rate: AUDIO_RATE },
         voice: getSelectedVoice(),
+        role: getSelectedRole(),
       },
     },
     instructions,
@@ -327,7 +380,7 @@ function handleMessage(event) {
 
     // Response complete
     case "response.done":
-      finalizeAssistantMessage();
+      finalizeAssistantMessage(msg.response?.usage);
       break;
 
     case "error": {
@@ -468,9 +521,8 @@ function upsertUserMessage(itemId, text) {
 
   // Strip prefix already shown in a previous turn (Yandex sends cumulative transcripts)
   let displayText = text;
-  if (!currentUserBubble && lastCompletedFullText && text.startsWith(lastCompletedFullText)) {
+  if (!currentUserBubble && lastCompletedFullText && text.startsWith(lastCompletedFullText) && text.length > lastCompletedFullText.length) {
     displayText = text.substring(lastCompletedFullText.length).trimStart();
-    if (!displayText) return;
   }
 
   if (currentUserBubble && currentUserItemId === itemId) {
@@ -489,6 +541,8 @@ function upsertUserMessage(itemId, text) {
 }
 
 function addUserMessage(text) {
+  currentUserBubble = null;
+  currentUserItemId = null;
   upsertUserMessage(null, text);
 }
 
@@ -509,16 +563,48 @@ function appendAssistantText(delta) {
   scrollToBottom();
 }
 
-function finalizeAssistantMessage() {
+function buildTokenMeta(usage) {
+  const inp = usage.input_tokens ?? 0;
+  const out = usage.output_tokens ?? 0;
+  const inDet = usage.input_token_details || {};
+  const outDet = usage.output_token_details || {};
+
+  const rows = [{ label: "Входящие", value: inp, indent: false }];
+  if (inDet.text_tokens) rows.push({ label: "Текстовые", value: inDet.text_tokens, indent: true });
+  if (inDet.cached_tokens) rows.push({ label: "Кэшированные", value: inDet.cached_tokens, indent: true });
+  rows.push({ label: "Исходящие", value: out, indent: false });
+  if (outDet.text_tokens) rows.push({ label: "Текстовые", value: outDet.text_tokens, indent: true });
+  if (outDet.audio_tokens) rows.push({ label: "Аудио", value: outDet.audio_tokens, indent: true });
+
+  const wrapper = document.createElement("span");
+  wrapper.className = "token-meta";
+
+  const summary = document.createElement("span");
+  summary.className = "token-summary";
+  summary.innerHTML =
+    `Токены <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>` +
+    ` ↓ ${inp} ↑ ${out}`;
+  wrapper.appendChild(summary);
+
+  wrapper.addEventListener("mouseenter", () => showTokenTooltip(wrapper, rows, "Потреблённые токены"));
+  wrapper.addEventListener("mouseleave", hideTokenTooltip);
+
+  return wrapper;
+}
+
+function finalizeAssistantMessage(usage = null) {
   // Если пузырька нет — это был только function_call без текста.
   // Сохраняем lastUserQueryAt, чтобы измерить latency финального ответа после тула.
   if (!currentAssistantBubble) return;
 
   if (lastUserQueryAt !== null && firstDeltaAt !== null) {
     const ttfr = Math.round(firstDeltaAt - lastUserQueryAt);
-    const meta = document.createElement("span");
+    const meta = document.createElement("div");
     meta.className = "message-meta";
-    meta.textContent = `${ttfr} мс`;
+    const timeSpan = document.createElement("span");
+    timeSpan.textContent = `${ttfr} мс`;
+    meta.appendChild(timeSpan);
+    if (usage) meta.appendChild(buildTokenMeta(usage));
     currentAssistantBubble.appendChild(meta);
   }
   currentAssistantBubble = null;
