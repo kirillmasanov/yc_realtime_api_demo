@@ -144,17 +144,116 @@ header h1 {
 #settings-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
 
 /* Settings panel */
+/* Settings modal overlay */
+#settings-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#settings-modal[hidden] { display: none; }
+
 #settings-panel {
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 18px 20px 16px;
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(15, 23, 42, 0.18);
+  padding: 24px 28px 20px;
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-body {
+  display: flex;
+  gap: 28px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.settings-left {
+  flex: 0 0 450px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
-#settings-panel[hidden] { display: none; }
+.settings-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 28px;
+}
+
+/* В левой колонке segmented растягивается на всю ширину с переносом */
+.settings-left .segmented {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.settings-left .segmented label {
+  flex: 1;
+  text-align: center;
+  justify-content: center;
+  padding: 7px 10px;
+}
+
+.settings-row--fill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-row--fill textarea {
+  flex: 1;
+  resize: none;
+  min-height: 120px;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.settings-modal-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+#settings-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+#settings-close:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
 
 .settings-row {
   display: flex;
@@ -331,8 +430,8 @@ header h1 {
   resize: vertical;
   min-height: 84px;
   line-height: 1.55;
-  font-size: 12.5px;
-  font-family: "SF Mono", Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-family: inherit;
 }
 
 /* Custom range slider */
