@@ -166,7 +166,6 @@ BASE_SESSION: dict = {
         "output": {
             "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
             "voice": "masha",
-            "role": "friendly",
         },
     },
     "tool_choice": "auto",
@@ -386,7 +385,9 @@ async def websocket_proxy(browser_ws: WebSocket):
                     sess = data.get("session", {})
                     tools = sess.get("tools", "—")
                     tool_names = [t.get("name") for t in tools] if isinstance(tools, list) else tools
-                    logger.info("session.update → Yandex, tools=%s, tool_choice=%s",
+                    audio_out = (sess.get("audio") or {}).get("output") or {}
+                    logger.info("session.update → Yandex, voice=%s, role=%s, tools=%s, tool_choice=%s",
+                                audio_out.get("voice", "—"), audio_out.get("role", "—"),
                                 tool_names, sess.get("tool_choice", "—"))
                 await yandex_ws.send(json.dumps(data))
         except WebSocketDisconnect:

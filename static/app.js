@@ -71,8 +71,9 @@ function buildSessionTools() {
 }
 
 // Settings DOM
-const settingsPanel = document.getElementById("settings-panel");
+const settingsModal = document.getElementById("settings-modal");
 const settingsBtn = document.getElementById("settings-btn");
+const settingsClose = document.getElementById("settings-close");
 const settingThreshold = document.getElementById("setting-threshold");
 const settingThresholdVal = document.getElementById("threshold-val");
 const settingSilence = document.getElementById("setting-silence");
@@ -181,14 +182,18 @@ const DEFAULT_INSTRUCTIONS =
 
 settingInstructions.value = DEFAULT_INSTRUCTIONS;
 
-function toggleSettings() {
-  settingsPanel.hidden = !settingsPanel.hidden;
-  settingsBtn.classList.toggle("active", !settingsPanel.hidden);
+function openSettings() {
+  settingsModal.hidden = false;
+  settingsBtn.classList.add("active");
+}
+
+function closeSettings() {
+  settingsModal.hidden = true;
+  settingsBtn.classList.remove("active");
 }
 
 function getSelectedVoice() {
-  const selected = document.querySelector('input[name="voice"]:checked');
-  return selected ? selected.value : "masha";
+  return document.getElementById("voice-select")?.dataset.value || "masha";
 }
 
 function getSelectedLang() {
@@ -197,9 +202,110 @@ function getSelectedLang() {
 }
 
 function getSelectedRole() {
-  const selected = document.querySelector('input[name="role"]:checked');
-  return selected ? selected.value : "friendly";
+  return document.getElementById("role-select")?.dataset.value || null;
 }
+
+const VOICE_ROLES = {
+  // Female
+  alena:     new Set(["neutral", "good"]),
+  dasha:     new Set(["neutral", "good", "friendly"]),
+  jane:      new Set(["neutral", "good", "evil"]),
+  julia:     new Set(["neutral", "strict"]),
+  lera:      new Set(["neutral", "friendly"]),
+  marina:    new Set(["neutral", "whisper", "friendly"]),
+  masha:     new Set(["good", "strict", "friendly"]),
+  omazh:     new Set(["neutral", "evil"]),
+  saule_ru:  new Set(["neutral", "strict", "whisper"]),
+  yulduz_ru: new Set(["neutral", "strict", "friendly", "whisper"]),
+  zamira_ru: new Set(["neutral", "strict", "friendly"]),
+  zhanar_ru: new Set(["neutral", "strict", "friendly"]),
+  // Male
+  alexander: new Set(["neutral", "good"]),
+  anton:     new Set(["neutral", "good"]),
+  ermil:     new Set(["neutral", "good"]),
+  filipp:    new Set([]),
+  kirill:    new Set(["neutral", "strict", "good"]),
+  madi_ru:   new Set([]),
+  zahar:     new Set(["neutral", "good"]),
+};
+
+function setCustomSelectValue(selectEl, value) {
+  const list = selectEl.querySelector(".custom-select__list");
+  const btn  = selectEl.querySelector(".custom-select__btn span");
+  const target = list.querySelector(`li[data-value="${value}"]`);
+  if (!target) return;
+  list.querySelectorAll("li").forEach(li => li.classList.remove("selected"));
+  target.classList.add("selected");
+  selectEl.dataset.value = value;
+  btn.textContent = target.textContent;
+}
+
+function updateRoleOptions(voice) {
+  const allowed = VOICE_ROLES[voice] ?? new Set(["neutral"]);
+  const noRoles = allowed.size === 0;
+  const roleSelect = document.getElementById("role-select");
+  const roleBtn = roleSelect.querySelector(".custom-select__btn");
+
+  roleBtn.disabled = noRoles;
+  roleSelect.classList.toggle("no-roles", noRoles);
+
+  roleSelect.querySelectorAll("li[data-value]").forEach(li => {
+    li.classList.toggle("disabled", noRoles || !allowed.has(li.dataset.value));
+  });
+
+  if (noRoles) {
+    roleSelect.dataset.value = "";
+    roleSelect.querySelector(".custom-select__btn span").textContent = "—";
+    roleSelect.querySelectorAll("li").forEach(li => li.classList.remove("selected"));
+  } else if (!allowed.has(roleSelect.dataset.value)) {
+    const fallback = allowed.has("neutral") ? "neutral"
+      : allowed.has("friendly") ? "friendly"
+      : [...allowed][0];
+    setCustomSelectValue(roleSelect, fallback);
+  }
+}
+
+function initCustomSelect(selectEl) {
+  const btn  = selectEl.querySelector(".custom-select__btn");
+  const list = selectEl.querySelector(".custom-select__list");
+
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    const opening = list.hidden;
+    closeAllCustomSelects();
+    if (opening) {
+      list.hidden = false;
+      selectEl.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
+  });
+
+  list.addEventListener("click", e => {
+    const li = e.target.closest("li[data-value]");
+    if (!li || li.classList.contains("disabled")) return;
+    setCustomSelectValue(selectEl, li.dataset.value);
+    list.hidden = true;
+    selectEl.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+    selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function closeAllCustomSelects() {
+  document.querySelectorAll(".custom-select.open").forEach(sel => {
+    sel.classList.remove("open");
+    sel.querySelector(".custom-select__list").hidden = true;
+    sel.querySelector(".custom-select__btn").setAttribute("aria-expanded", "false");
+  });
+}
+
+document.addEventListener("click", closeAllCustomSelects);
+
+document.querySelectorAll(".custom-select").forEach(initCustomSelect);
+
+document.getElementById("voice-select").addEventListener("change", () => updateRoleOptions(getSelectedVoice()));
+
+updateRoleOptions(getSelectedVoice());
 
 function getSelectedOutputMode() {
   const selected = document.querySelector('input[name="output-mode"]:checked');
@@ -230,7 +336,7 @@ function getSessionSettings() {
       output: {
         format: { type: "audio/pcm", rate: AUDIO_RATE },
         voice: getSelectedVoice(),
-        role: getSelectedRole(),
+        ...(getSelectedRole() ? { role: getSelectedRole() } : {}),
       },
     },
     instructions,
@@ -255,12 +361,27 @@ settingSilence.addEventListener("input", () => {
   settingSilenceVal.textContent = settingSilence.value;
 });
 
-settingsBtn.addEventListener("click", toggleSettings);
+settingsBtn.addEventListener("click", openSettings);
+settingsClose.addEventListener("click", closeSettings);
+
+settingsModal.addEventListener("click", (e) => {
+  if (e.target === settingsModal) closeSettings();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !settingsModal.hidden) closeSettings();
+});
 
 settingsApply.addEventListener("click", () => {
-  applySettings();
-  settingsApply.textContent = "Применено ✓";
-  setTimeout(() => { settingsApply.textContent = "Применить"; }, 1500);
+  closeSettings();
+  const voice = getSelectedVoice();
+  if ((VOICE_ROLES[voice]?.size ?? 1) === 0 && ws) {
+    // Голос не поддерживает роли: реконнект для сброса стейта роли в сессии Yandex
+    reconnectAttempts = 0;
+    ws.close();
+  } else {
+    applySettings();
+  }
 });
 
 // ---------------------------------------------------------------------------
