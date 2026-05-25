@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Yandex Realtime API Demo</title>
-  <link rel="stylesheet" href="static/style.css?v=4">
+  <link rel="stylesheet" href="static/style.css?v=20260525">
 </head>
 <body>
   <div id="app">
@@ -137,6 +137,23 @@
       </div>
       <div class="settings-body">
         <div class="settings-left">
+          <div class="settings-row">
+            <label>Язык синтеза</label>
+            <div class="custom-select" id="lang-synth-select" data-value="ru-RU">
+              <button class="custom-select__btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span>Русский</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <ul class="custom-select__list" hidden role="listbox">
+                <li data-value="ru-RU" role="option" class="selected">Русский</li>
+                <li data-value="en-US" role="option">English</li>
+                <li data-value="de-DE" role="option">Deutsch</li>
+                <li data-value="kk-KZ" role="option">Қазақша</li>
+                <li data-value="uz-UZ" role="option">O'zbek</li>
+                <li data-value="he-IL" role="option">עברית</li>
+              </ul>
+            </div>
+          </div>
           <div class="settings-row settings-row--2col">
             <div>
               <label>Голос</label>
@@ -146,27 +163,42 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
                 <ul class="custom-select__list" hidden role="listbox">
-                  <li class="custom-select__group">Женские</li>
-                  <li data-value="alena" role="option">Алёна</li>
-                  <li data-value="dasha" role="option">Даша</li>
-                  <li data-value="jane" role="option">Джейн</li>
-                  <li data-value="julia" role="option">Юлия</li>
-                  <li data-value="lera" role="option">Лера</li>
-                  <li data-value="marina" role="option">Марина</li>
-                  <li data-value="masha" role="option" class="selected">Маша</li>
-                  <li data-value="omazh" role="option">Омаж</li>
-                  <li data-value="saule_ru" role="option">Сауле</li>
-                  <li data-value="yulduz_ru" role="option">Юлдуз</li>
-                  <li data-value="zamira_ru" role="option">Замира</li>
-                  <li data-value="zhanar_ru" role="option">Жанар</li>
-                  <li class="custom-select__group">Мужские</li>
-                  <li data-value="alexander" role="option">Александр</li>
-                  <li data-value="anton" role="option">Антон</li>
-                  <li data-value="ermil" role="option">Ермил</li>
-                  <li data-value="filipp" role="option">Филипп</li>
-                  <li data-value="kirill" role="option">Кирилл</li>
-                  <li data-value="madi_ru" role="option">Мади</li>
-                  <li data-value="zahar" role="option">Захар</li>
+                  <li class="custom-select__group" data-group-lang="ru-RU">Женские</li>
+                  <li data-value="alena"     data-lang="ru-RU" role="option">Алёна</li>
+                  <li data-value="dasha"     data-lang="ru-RU" role="option">Даша</li>
+                  <li data-value="jane"      data-lang="ru-RU" role="option">Джейн</li>
+                  <li data-value="julia"     data-lang="ru-RU" role="option">Юлия</li>
+                  <li data-value="lera"      data-lang="ru-RU" role="option">Лера</li>
+                  <li data-value="marina"    data-lang="ru-RU" role="option">Марина</li>
+                  <li data-value="masha"     data-lang="ru-RU" role="option" class="selected">Маша</li>
+                  <li data-value="omazh"     data-lang="ru-RU" role="option">Омаж</li>
+                  <li data-value="saule_ru"  data-lang="ru-RU" role="option">Сауле</li>
+                  <li data-value="yulduz_ru" data-lang="ru-RU" role="option">Юлдуз</li>
+                  <li data-value="zamira_ru" data-lang="ru-RU" role="option">Замира</li>
+                  <li data-value="zhanar_ru" data-lang="ru-RU" role="option">Жанар</li>
+                  <li class="custom-select__group" data-group-lang="ru-RU">Мужские</li>
+                  <li data-value="alexander" data-lang="ru-RU" role="option">Александр</li>
+                  <li data-value="anton"     data-lang="ru-RU" role="option">Антон</li>
+                  <li data-value="ermil"     data-lang="ru-RU" role="option">Ермил</li>
+                  <li data-value="filipp"    data-lang="ru-RU" role="option">Филипп</li>
+                  <li data-value="kirill"    data-lang="ru-RU" role="option">Кирилл</li>
+                  <li data-value="madi_ru"   data-lang="ru-RU" role="option">Мади</li>
+                  <li data-value="zahar"     data-lang="ru-RU" role="option">Захар</li>
+                  <li class="custom-select__group" data-group-lang="en-US">English</li>
+                  <li data-value="john"      data-lang="en-US" role="option">John</li>
+                  <li class="custom-select__group" data-group-lang="de-DE">Deutsch</li>
+                  <li data-value="lea"       data-lang="de-DE" role="option">Lea</li>
+                  <li class="custom-select__group" data-group-lang="kk-KZ">Қазақша</li>
+                  <li data-value="amira"     data-lang="kk-KZ" role="option">Амира</li>
+                  <li data-value="madi"      data-lang="kk-KZ" role="option">Мади</li>
+                  <li data-value="saule"     data-lang="kk-KZ" role="option">Сауле</li>
+                  <li data-value="zhanar"    data-lang="kk-KZ" role="option">Жанар</li>
+                  <li class="custom-select__group" data-group-lang="uz-UZ">O'zbek</li>
+                  <li data-value="nigora"    data-lang="uz-UZ" role="option">Нигора</li>
+                  <li data-value="zamira"    data-lang="uz-UZ" role="option">Замира</li>
+                  <li data-value="yulduz"    data-lang="uz-UZ" role="option">Юлдуз</li>
+                  <li class="custom-select__group" data-group-lang="he-IL">עברית</li>
+                  <li data-value="naomi"     data-lang="he-IL" role="option">Наоми</li>
                 </ul>
               </div>
             </div>
@@ -184,19 +216,38 @@
                   <li data-value="friendly" role="option" class="selected">Дружелюбное</li>
                   <li data-value="strict" role="option">Строгое</li>
                   <li data-value="whisper" role="option">Шёпот</li>
+                  <li data-value="modern" role="option">Современный</li>
+                  <li data-value="classic" role="option">Классический</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="settings-row">
             <label>Язык распознавания</label>
-            <div class="segmented" role="radiogroup" aria-label="Язык распознавания">
-              <input type="radio" name="lang" id="lang-auto" value="auto">
-              <label for="lang-auto">Авто</label>
-              <input type="radio" name="lang" id="lang-ru" value="ru-RU" checked>
-              <label for="lang-ru">Русский</label>
-              <input type="radio" name="lang" id="lang-en" value="en-US">
-              <label for="lang-en">English</label>
+            <div class="custom-select" id="lang-recog-select" data-value="auto">
+              <button class="custom-select__btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span>Авто</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <ul class="custom-select__list" hidden role="listbox">
+                <li data-value="auto"  role="option" class="selected">Авто</li>
+                <li data-value="ru-RU" role="option">Русский</li>
+                <li data-value="en-US" role="option">English</li>
+                <li data-value="de-DE" role="option">Deutsch</li>
+                <li data-value="fr-FR" role="option">Français</li>
+                <li data-value="es-ES" role="option">Español</li>
+                <li data-value="it-IT" role="option">Italiano</li>
+                <li data-value="pt-PT" role="option">Português</li>
+                <li data-value="pt-BR" role="option">Português (BR)</li>
+                <li data-value="nl-NL" role="option">Nederlands</li>
+                <li data-value="pl-PL" role="option">Polski</li>
+                <li data-value="sv-SE" role="option">Svenska</li>
+                <li data-value="fi-FI" role="option">Suomi</li>
+                <li data-value="tr-TR" role="option">Türkçe</li>
+                <li data-value="kk-KZ" role="option">Қазақша</li>
+                <li data-value="uz-UZ" role="option">O'zbek</li>
+                <li data-value="he-IL" role="option">עברית</li>
+              </ul>
             </div>
           </div>
           <div class="settings-row">
@@ -256,6 +307,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=4"></script>
+  <script src="static/app.js?v=20260525"></script>
 </body>
 </html>

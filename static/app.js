@@ -197,8 +197,7 @@ function getSelectedVoice() {
 }
 
 function getSelectedLang() {
-  const selected = document.querySelector('input[name="lang"]:checked');
-  return selected ? selected.value : "ru-RU";
+  return document.getElementById("lang-recog-select")?.dataset.value || "auto";
 }
 
 function getSelectedRole() {
@@ -227,6 +226,21 @@ const VOICE_ROLES = {
   kirill:    new Set(["neutral", "strict", "good"]),
   madi_ru:   new Set([]),
   zahar:     new Set(["neutral", "good"]),
+  // English
+  john:      new Set([]),
+  // German
+  lea:       new Set([]),
+  // Kazakh
+  amira:     new Set([]),
+  madi:      new Set([]),
+  saule:     new Set(["neutral", "strict"]),
+  zhanar:    new Set(["neutral", "friendly"]),
+  // Uzbek
+  nigora:    new Set([]),
+  zamira:    new Set(["neutral", "strict", "friendly"]),
+  yulduz:    new Set(["neutral", "strict", "friendly", "whisper"]),
+  // Hebrew
+  naomi:     new Set(["modern", "classic"]),
 };
 
 function setCustomSelectValue(selectEl, value) {
@@ -305,6 +319,30 @@ document.querySelectorAll(".custom-select").forEach(initCustomSelect);
 
 document.getElementById("voice-select").addEventListener("change", () => updateRoleOptions(getSelectedVoice()));
 
+function updateVoiceOptions(lang) {
+  const voiceSelect = document.getElementById("voice-select");
+  voiceSelect.querySelectorAll("li").forEach(li => {
+    const itemLang = li.classList.contains("custom-select__group")
+      ? li.dataset.groupLang
+      : li.dataset.lang;
+    li.style.display = itemLang === lang ? "" : "none";
+  });
+  // Если текущий голос не принадлежит выбранному языку — переключить на первый доступный
+  const current = voiceSelect.querySelector(`li[data-value="${getSelectedVoice()}"]`);
+  if (!current || current.dataset.lang !== lang) {
+    const first = voiceSelect.querySelector(`li[data-lang="${lang}"]`);
+    if (first) {
+      setCustomSelectValue(voiceSelect, first.dataset.value);
+      updateRoleOptions(getSelectedVoice());
+    }
+  }
+}
+
+document.getElementById("lang-synth-select").addEventListener("change", () => {
+  updateVoiceOptions(document.getElementById("lang-synth-select").dataset.value);
+});
+
+updateVoiceOptions("ru-RU");
 updateRoleOptions(getSelectedVoice());
 
 function getSelectedOutputMode() {
