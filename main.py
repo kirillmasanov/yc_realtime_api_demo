@@ -279,6 +279,7 @@ async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(.
                 "name": file.filename,
                 "description": f"Содержимое файла «{file.filename}», загруженного пользователем.",
                 "file_ids": [file_id],
+                "expires_after": {"anchor": "last_active_at", "days": 1},
             },
         )
         if resp.status_code not in (200, 201):
