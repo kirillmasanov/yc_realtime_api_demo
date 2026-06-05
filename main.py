@@ -34,9 +34,6 @@ def yandex_ws_url(model: str) -> str:
         f"?model=gpt://{YANDEX_FOLDER_ID}/{model}"
     )
 
-# Sample rate для PCM16 аудио — должен совпадать с AudioContext браузера.
-AUDIO_RATE = 44100
-
 YANDEX_REST_BASE = "https://ai.api.cloud.yandex.net/v1"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -140,69 +137,9 @@ def execute_tool(name: str, arguments: str) -> str:
     return json.dumps({"error": f"Неизвестный инструмент: {name}"}, ensure_ascii=False)
 
 
-# ==== Конфигурация сессии ====
-
-BASE_SESSION: dict = {
-    "instructions": (
-        "Ты — голосовой ассистент-демонстратор возможностей Yandex Realtime API. "
-        "Отвечай кратко, дружелюбно и по существу. "
-        "Твои инструменты: "
-        "calculator (математические вычисления); "
-        "web_search (актуальная информация из интернета — новости, события, погода, курсы); "
-        "file_search — поиск по содержимому загруженного пользователем документа. "
-        "Если он есть в твоём списке инструментов, значит документ уже загружен и проиндексирован: "
-        "обязательно вызывай его для любых вопросов о содержимом приложенного файла, не отвечай по памяти. "
-        "Если же его нет в твоём списке — значит файл не загружен, так и сообщи пользователю. "
-        "Используй web_search для новостей, актуальных событий и любой информации, "
-        "которой у тебя может не быть в обучении. "
-        "ВАЖНО: перед вызовом функции ничего не говори — просто вызови функцию молча. "
-        "Ответ формируй только после получения результата функции. "
-        "Отвечай на том языке, на котором к тебе обращаются. "
-        "Никогда не используй markdown-разметку: никаких **, *, #, -, > и подобных символов — ответы озвучиваются вслух."
-    ),
-    "output_modalities": ["audio"],
-    "audio": {
-        "input": {
-            "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
-            "languages": ["ru-RU"],
-            "turn_detection": {
-                "type": "server_vad",
-                "threshold": 0.5,
-                "silence_duration_ms": 1000,
-            },
-        },
-        "output": {
-            "format": {"type": "audio/pcm", "rate": AUDIO_RATE},
-            "voice": "masha",
-        },
-    },
-    "tool_choice": "auto",
-}
-
-
-def build_session_config(rag: dict) -> dict:
-    """Строит session.update с актуальным набором инструментов для данной сессии."""
-    tools = list(TOOLS)
-    extra: dict = {}
-    if rag["vector_store_id"]:
-        tools.append({
-            "type": "function",
-            "name": "file_search",
-            # Yandex-native формат: vector_store_id передаётся в description
-            "description": rag["vector_store_id"],
-            "parameters": {},
-        })
-        extra["instructions"] = (
-            BASE_SESSION["instructions"]
-            + f"\n\nФАЙЛ ЗАГРУЖЕН: «{rag['filename']}» проиндексирован и доступен через инструмент file_search. "
-            "СТРОГОЕ ПРАВИЛО: на любой вопрос о содержимом этого файла ты ОБЯЗАН сначала вызвать file_search, и только потом отвечать. "
-            "Отвечать без вызова file_search ЗАПРЕЩЕНО — даже если кажется, что знаешь ответ. "
-            "Фраза «не удаётся получить информацию» недопустима — просто вызови file_search и используй результат."
-        )
-        # Форсируем вызов search_index при активном RAG —
-        # модель в "auto" режиме часто игнорирует инструмент.
-        extra["tool_choice"] = {"type": "function", "name": "search_index"}
-    return {"type": "session.update", "session": {**BASE_SESSION, **extra, "tools": tools}}
+# Конфигурацию сессии (instructions, голос, режим, VAD, инструменты, RAG)
+# целиком задаёт браузер через session.update — см. getSessionSettings() в app.js.
+# Сервер только проксирует и исполняет локальные инструменты.
 
 
 # ==== FastAPI приложение ====
@@ -430,8 +367,12 @@ async def websocket_proxy(browser_ws: WebSocket):
                                     names, sess.get("tool_choice", "—"))
 
                 if msg_type == "session.created":
-                    logger.info("Session created, sending config (RAG active: %s)", bool(session_rag["vector_store_id"]))
-                    await yandex_ws.send(json.dumps(build_session_config(session_rag)))
+                    # Конфигурацию сессии целиком задаёт браузер — единственный источник
+                    # правды. Получив session.created, он шлёт session.update со всеми
+                    # настройками (голос, амплуа, режим, VAD, инструкции, инструменты, RAG).
+                    # Сервер намеренно НЕ шлёт свой config, чтобы не конкурировать за стейт
+                    # сессии (Yandex мержит session.update — последний выигрывает).
+                    logger.info("Session created (config driven by browser)")
 
                 if msg_type == "conversation.item.input_audio_transcription.completed":
                     logger.info("USER said: %r", msg.get("transcript", ""))
