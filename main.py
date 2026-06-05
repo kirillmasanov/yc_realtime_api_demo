@@ -237,10 +237,18 @@ async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(.
     async with httpx.AsyncClient(timeout=15) as client:
         for attempt in range(300):  # максимум 600 секунд (10 минут)
             await asyncio.sleep(2)
-            resp = await client.get(
-                f"{YANDEX_REST_BASE}/vector_stores/{vector_store_id}",
-                headers=headers,
-            )
+            try:
+                resp = await client.get(
+                    f"{YANDEX_REST_BASE}/vector_stores/{vector_store_id}",
+                    headers=headers,
+                )
+            except httpx.HTTPError as exc:
+                # Транзиентный сетевой сбой (таймаут одного запроса, обрыв соединения)
+                # не должен ронять всю загрузку — индексация продолжается на стороне
+                # Yandex. Логируем и повторяем на следующей итерации.
+                logger.warning("Polling request failed (attempt %d), retrying: %s", attempt + 1, exc)
+                continue
+
             if resp.status_code not in (200, 201):
                 raise HTTPException(resp.status_code, f"Polling failed: {resp.text}")
 
