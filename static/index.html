@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Yandex Realtime API Demo</title>
-  <link rel="stylesheet" href="static/style.css?v=20260525">
+  <link rel="stylesheet" href="static/style.css?v=20260605">
 </head>
 <body>
   <div id="app">
@@ -137,6 +137,19 @@
       </div>
       <div class="settings-body">
         <div class="settings-left">
+          <div class="settings-row">
+            <label>Модель</label>
+            <div class="custom-select" id="model-select" data-value="speech-realtime-250923">
+              <button class="custom-select__btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span>speech-realtime-250923</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <ul class="custom-select__list" hidden role="listbox">
+                <li data-value="speech-realtime-250923" role="option" class="selected">speech-realtime-250923</li>
+                <li data-value="speech-realtime-260528" role="option">speech-realtime-260528</li>
+              </ul>
+            </div>
+          </div>
           <div class="settings-row">
             <label>Язык синтеза</label>
             <div class="custom-select" id="lang-synth-select" data-value="ru-RU">
@@ -307,6 +320,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=20260525"></script>
+  <script src="static/app.js?v=20260605"></script>
 </body>
 </html>

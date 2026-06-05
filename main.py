@@ -21,10 +21,18 @@ load_dotenv()
 YANDEX_API_KEY = os.getenv("YANDEX_API_KEY", "")
 YANDEX_FOLDER_ID = os.getenv("YANDEX_FOLDER_ID", "")
 
-YANDEX_WS_URL = (
-    "wss://ai.api.cloud.yandex.net/v1/realtime"
-    f"?model=gpt://{YANDEX_FOLDER_ID}/speech-realtime-250923"
-)
+# Доступные realtime-модели. Модель выбирается в браузере и приходит
+# query-параметром при подключении к /ws (зашита в URL соединения с Yandex,
+# поэтому смена модели = переподключение).
+REALTIME_MODELS = {"speech-realtime-250923", "speech-realtime-260528"}
+DEFAULT_MODEL = "speech-realtime-250923"
+
+
+def yandex_ws_url(model: str) -> str:
+    return (
+        "wss://ai.api.cloud.yandex.net/v1/realtime"
+        f"?model=gpt://{YANDEX_FOLDER_ID}/{model}"
+    )
 
 # Sample rate для PCM16 аудио — должен совпадать с AudioContext браузера.
 AUDIO_RATE = 44100
@@ -344,6 +352,12 @@ async def websocket_proxy(browser_ws: WebSocket):
         await browser_ws.close()
         return
 
+    # Модель выбирается в браузере и приходит query-параметром.
+    model = browser_ws.query_params.get("model", DEFAULT_MODEL)
+    if model not in REALTIME_MODELS:
+        logger.warning("Unknown model %r requested, falling back to %s", model, DEFAULT_MODEL)
+        model = DEFAULT_MODEL
+
     # Создаём per-session RAG state
     session_id = str(uuid.uuid4())
     session_rag = _empty_rag()
@@ -362,7 +376,7 @@ async def websocket_proxy(browser_ws: WebSocket):
 
     try:
         yandex_ws = await websockets.connect(
-            YANDEX_WS_URL,
+            yandex_ws_url(model),
             additional_headers=headers,
             ping_interval=20,
             max_size=10 * 1024 * 1024,  # 10MB — Yandex может слать большие аудио-чанки
@@ -376,7 +390,7 @@ async def websocket_proxy(browser_ws: WebSocket):
         sessions.pop(session_id, None)
         return
 
-    logger.info("Connected to Yandex Realtime API (session=%s)", session_id)
+    logger.info("Connected to Yandex Realtime API (session=%s, model=%s)", session_id, model)
 
     async def browser_to_yandex():
         try:

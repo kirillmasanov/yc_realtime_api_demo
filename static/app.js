@@ -37,6 +37,9 @@ let firstDeltaAt = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_DELAY = 30000;
 
+// Модель, с которой установлено текущее соединение (зашита в URL соединения).
+let connectedModel = null;
+
 // DOM
 const chat = document.getElementById("chat");
 const micBtn = document.getElementById("mic-btn");
@@ -202,6 +205,10 @@ function getSelectedLang() {
 
 function getSelectedRole() {
   return document.getElementById("role-select")?.dataset.value || null;
+}
+
+function getSelectedModel() {
+  return document.getElementById("model-select")?.dataset.value || "speech-realtime-250923";
 }
 
 const VOICE_ROLES = {
@@ -413,7 +420,11 @@ document.addEventListener("keydown", (e) => {
 settingsApply.addEventListener("click", () => {
   closeSettings();
   const voice = getSelectedVoice();
-  if ((VOICE_ROLES[voice]?.size ?? 1) === 0 && ws) {
+  if (getSelectedModel() !== connectedModel && ws) {
+    // Модель задаётся только при подключении — реконнект с новой моделью в URL
+    reconnectAttempts = 0;
+    ws.close();
+  } else if ((VOICE_ROLES[voice]?.size ?? 1) === 0 && ws) {
     // Голос не поддерживает роли: реконнект для сброса стейта роли в сессии Yandex
     reconnectAttempts = 0;
     ws.close();
@@ -437,6 +448,9 @@ function connect() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = new URL("ws", document.baseURI);
   wsUrl.protocol = protocol;
+  // Модель зашита в URL соединения с Yandex на сервере — передаём её query-параметром.
+  connectedModel = getSelectedModel();
+  wsUrl.searchParams.set("model", connectedModel);
   ws = new WebSocket(wsUrl.href);
 
   ws.onopen = () => {
