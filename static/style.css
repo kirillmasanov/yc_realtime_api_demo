@@ -262,6 +262,13 @@ header h1 {
   cursor: not-allowed;
 }
 
+.custom-select__btn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .custom-select__btn svg {
   flex-shrink: 0;
   color: var(--text-muted);

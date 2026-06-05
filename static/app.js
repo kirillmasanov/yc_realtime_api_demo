@@ -15,6 +15,7 @@ let sourceNode = null;
 let silentGain = null;
 let isRecording = false;
 let audioInitialized = false;
+let sentAudioSinceStart = false; // были ли отправлены аудио-чанки в текущей записи
 
 // Playback scheduling
 let playbackTime = 0;
@@ -418,14 +419,30 @@ document.addEventListener("keydown", (e) => {
 });
 
 settingsApply.addEventListener("click", () => {
-  closeSettings();
   const voice = getSelectedVoice();
-  if (getSelectedModel() !== connectedModel && ws) {
-    // Модель задаётся только при подключении — реконнект с новой моделью в URL
-    reconnectAttempts = 0;
-    ws.close();
-  } else if ((VOICE_ROLES[voice]?.size ?? 1) === 0 && ws) {
-    // Голос не поддерживает роли: реконнект для сброса стейта роли в сессии Yandex
+  const modelChanged = getSelectedModel() !== connectedModel;
+  // Голос без амплуа: реконнект для сброса стейта роли в сессии Yandex.
+  // Модель задаётся только при подключении — её смена тоже требует реконнекта.
+  const noRoles = (VOICE_ROLES[voice]?.size ?? 1) === 0;
+  const needsReconnect = !!ws && (modelChanged || noRoles);
+
+  // Реконнект обнуляет сессию Yandex и отвязывает загруженный документ —
+  // спрашиваем подтверждение, если файл прикреплён.
+  if (needsReconnect && currentVectorStoreId) {
+    const reason = modelChanged ? "Смена модели" : "Выбранный голос";
+    const ok = confirm(
+      `${reason} требует переподключения, при котором загруженный документ ` +
+      `«${currentFilename}» будет отвязан. Продолжить?`
+    );
+    if (!ok) {
+      // Откатываем выбор модели к подключённой — UI не должен врать
+      if (modelChanged) setCustomSelectValue(document.getElementById("model-select"), connectedModel);
+      return; // модалка остаётся открытой
+    }
+  }
+
+  closeSettings();
+  if (needsReconnect) {
     reconnectAttempts = 0;
     ws.close();
   } else {
@@ -600,6 +617,7 @@ async function startRecording() {
     if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
     const base64 = arrayBufferToBase64(event.data);
     ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }));
+    sentAudioSinceStart = true;
   };
 
   // Connect worklet through silent gain so it processes audio
@@ -610,6 +628,7 @@ async function startRecording() {
   silentGain.connect(audioContext.destination);
 
   isRecording = true;
+  sentAudioSinceStart = false;
   micBtn.classList.add("recording");
   micStatus.textContent = "Говорите...";
 }
@@ -631,10 +650,12 @@ function stopRecording() {
     silentGain = null;
   }
 
-  // Commit audio buffer
-  if (ws && ws.readyState === WebSocket.OPEN) {
+  // Commit audio buffer — только если реально что-то отправили,
+  // иначе Yandex ответит ошибкой на пустой commit
+  if (sentAudioSinceStart && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
   }
+  sentAudioSinceStart = false;
 
   micBtn.classList.remove("recording");
   micStatus.textContent = "Нажмите для начала записи";
