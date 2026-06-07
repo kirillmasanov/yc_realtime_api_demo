@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import json
 import logging
 import math
+import operator
 import os
 import uuid
 
@@ -25,7 +27,7 @@ YANDEX_FOLDER_ID = os.getenv("YANDEX_FOLDER_ID", "")
 # query-параметром при подключении к /ws (зашита в URL соединения с Yandex,
 # поэтому смена модели = переподключение).
 REALTIME_MODELS = {"speech-realtime-250923", "speech-realtime-260528"}
-DEFAULT_MODEL = "speech-realtime-250923"
+DEFAULT_MODEL = "speech-realtime-260528"
 
 
 def yandex_ws_url(model: str) -> str:
@@ -38,6 +40,11 @@ YANDEX_REST_BASE = "https://ai.api.cloud.yandex.net/v1"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+# Максимальный размер загружаемого файла — лимит Yandex Files API (128 МБ).
+# https://aistudio.yandex.ru/docs/ru/ai-studio/concepts/limits
+MAX_UPLOAD_SIZE = 128 * 1024 * 1024
+
 
 # ==== Per-session RAG state ====
 
@@ -119,6 +126,48 @@ SAFE_MATH = {
     "log": math.log, "log10": math.log10, "pi": math.pi, "e": math.e,
 }
 
+# Разрешённые операторы для безопасного вычислителя выражений.
+_BIN_OPS = {
+    ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+    ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod, ast.Pow: operator.pow,
+}
+_UNARY_OPS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+
+# Ограничитель степени — не даём считать гигантские числа (2**10**9 и т.п.)
+_MAX_POW_EXP = 1000
+
+
+def _safe_eval(node: ast.AST):
+    """Рекурсивно вычисляет арифметическое выражение по AST.
+
+    Разрешены только числовые литералы, базовые операторы и вызовы функций
+    из SAFE_MATH. Доступ к атрибутам (`.__class__`), произвольным именам и
+    любым другим узлам запрещён — это закрывает обход песочницы, возможный
+    при использовании eval().
+    """
+    if isinstance(node, ast.Expression):
+        return _safe_eval(node.body)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+            return node.value
+        raise ValueError("Недопустимая константа")
+    if isinstance(node, ast.BinOp) and type(node.op) in _BIN_OPS:
+        left, right = _safe_eval(node.left), _safe_eval(node.right)
+        if isinstance(node.op, ast.Pow) and isinstance(right, (int, float)) and abs(right) > _MAX_POW_EXP:
+            raise ValueError("Слишком большая степень")
+        return _BIN_OPS[type(node.op)](left, right)
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
+        return _UNARY_OPS[type(node.op)](_safe_eval(node.operand))
+    if isinstance(node, ast.Name) and node.id in SAFE_MATH:
+        return SAFE_MATH[node.id]
+    if isinstance(node, ast.Call):
+        func = _safe_eval(node.func)
+        if not callable(func) or node.keywords:
+            raise ValueError("Недопустимый вызов")
+        return func(*[_safe_eval(arg) for arg in node.args])
+    raise ValueError("Недопустимое выражение")
+
 
 def execute_tool(name: str, arguments: str) -> str:
     try:
@@ -129,7 +178,7 @@ def execute_tool(name: str, arguments: str) -> str:
     if name == "calculator":
         expr = args.get("expression", "")
         try:
-            result = eval(expr, {"__builtins__": {}}, SAFE_MATH)  # noqa: S307
+            result = _safe_eval(ast.parse(expr, mode="eval"))
             return json.dumps({"result": result}, ensure_ascii=False)
         except Exception as exc:
             return json.dumps({"error": str(exc)}, ensure_ascii=False)
@@ -174,7 +223,15 @@ async def upload_rag_file(file: UploadFile = File(...), session_id: str = Form(.
     if rag is None:
         raise HTTPException(400, "Unknown session_id")
 
+    # Ранняя проверка по заявленному размеру (Content-Length), чтобы не читать
+    # заведомо слишком большой файл в память.
+    if file.size is not None and file.size > MAX_UPLOAD_SIZE:
+        raise HTTPException(413, f"Файл слишком большой: максимум {MAX_UPLOAD_SIZE // (1024 * 1024)} МБ")
+
     file_bytes = await file.read()
+    if len(file_bytes) > MAX_UPLOAD_SIZE:
+        raise HTTPException(413, f"Файл слишком большой: максимум {MAX_UPLOAD_SIZE // (1024 * 1024)} МБ")
+
     headers = yandex_rest_headers()
 
     async with httpx.AsyncClient(timeout=30) as client:

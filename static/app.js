@@ -209,7 +209,7 @@ function getSelectedRole() {
 }
 
 function getSelectedModel() {
-  return document.getElementById("model-select")?.dataset.value || "speech-realtime-250923";
+  return document.getElementById("model-select")?.dataset.value || "speech-realtime-260528";
 }
 
 const VOICE_ROLES = {
